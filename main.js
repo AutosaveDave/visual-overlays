@@ -13,12 +13,16 @@ const getWidth = () => canvasEl.clientWidth;
 const getHeight = () => canvasEl.clientHeight;
 const handleResize = () => { canvasEl.height = getHeight(); canvasEl.width = getWidth(); };
 
-const mouseObj = { x: getWidth()/2, y: getHeight()/2, mousedown: false, mouseup: false, speed:0 }
+const ctx = canvasEl.getContext("2d");
+const timeObj = { 
+    lastDrawn: ( new Date() ).getTime() / 1000 - ( 1000 / 60 ), 
+    current: ( new Date() ).getTime() / 1000, 
+    delta: 1000 / 60
+};
+const mouseObj = { x: getWidth() / 2, y: getHeight() / 2, mousedown: false, mouseup: false, speed: 0, direction: 0 };
 const handleMouseMove = ( e ) => { 
     const time = ( new Date() ).getTime() / 1000;
     const delta = time - mouseObj.timeLastMoved;
-    mouseObj.xSpeed = ( e.clientX - mouseObj.x ) / delta; 
-    mouseObj.ySpeed = ( e.clientY - mouseObj.y ) / delta;
     mouseObj.x = e.clientX; 
     mouseObj.y = e.clientY; 
     mouseObj.timeLastMoved = time;
@@ -28,7 +32,9 @@ const handleMouseUp = ( e ) => { mouseObj.mouseup = true; };
 const handleMouseDown = ( e ) => { mouseObj.mousedown = true; };
 
 const spawnMargin = 24; // how far off-screen to spawn whisps
-let nextWhispId = 0;
+let nextWhispIdVar = 0;
+const nextWhispId = () => nextWhispIdVar++;
+let prevMouseCoords = [ mouseObj.x, mouseObj.y ];
 
 function init() {
     handleResize();
@@ -40,24 +46,12 @@ function init() {
 }
 
 const colorHues = { 'red':0, 'orange':30, 'yellow':60, 'green':100, 'sea':150, 'cyan':180, 
-    'sky':200, 'blue':240, 'indigo':260, 'purple':280, 'pink':300, 'fuschia':335 };
-
-const timeObj = { lastDrawn: ( new Date() ).getTime() / 1000, current: ( new Date() ).getTime() / 1000 }
-
-// whispString: a sequence of space-separated phrases describing 
-//      the desired appearance/behavior of the whisp.
-//          Each phrase is in the following format:
-//  whispString:     '{ propType }-{ propName }-{ (arg1?) }-{ (argN?) }'
-//  behaviorString:  "B-{ action }-{ stimulus }-{ condition }"
-//      actionString:    "{ actionType }.{ arg1 }.{ arg2 }.{ arg3 }"     (separated by '.' or ',')
-//      conditionString: "{ conditionType }.{ arg1 }.{ arg2 }.{ arg3 }"  (separated by '.' or ',')
-//      stimulusString:  "{ stimulusType }"
-//  spawnLocString:      "@-{ whichSides }.{ startRangePercent }.{ endRangePercent }"          
+    'sky':200, 'blue':240, 'indigo':260, 'purple':280, 'pink':300, 'fuschia':335, 'white':-1 };      
 
 const whispData = {
     propTypes: {
         'T' :   'type',
-        'B' :   'behavior',
+        'B' :   'behaviors',
         'L' :   'lightMap',
         'LS':   'lightScale',
         'LC':   'lightColor',
@@ -70,12 +64,10 @@ const whispData = {
     whispTypeProps: {
         default: {},
         'whisp': {
-            behaviors: [],
             lightScale: 1,
             lightColor: '#FFFFFF',
             whispScale: 1,
             whispColor: '#FFFFFF',
-            spawnLoc: 'allSides',
         }
     },
     behaviors: {
@@ -95,102 +87,106 @@ function getPropType( typeCode ) {
             : whispData.propTypes.default );
 }
 
-function getActionValue( actionString ) {
-    const [ name, ...args] = actionString.split('.');
-    return { act: whispData.behaviors[name], args: args };
-}
-function getStimulusValue( stimulusString ) {
-
-}
-function getConditionValue( conditionString ) {
-    const [ name, ...args] = conditionString.split('.');
-    return { eval: whispData.behaviors[name], args: args };
-}
-
-function getSpawnLocValue( name, args ) {
-    const sides = name.split('');
-    const range = [];
-    args.forEach( arg => { range.push( parseInt( arg ) ); } );
-    range.sort( ( a, b ) => a - b );
-    return { sides: ( ( sides.length > 0 ) ? sides : ['t','b','l','r'] ), 
-        range: { start: ( range[0] ? range[0] : 0 ), end: ( range[1] ? range[1] : 100 ) } 
-    };
+function getSpawnLocValue( [ name, ...args ] ) {
+    const sides = [...(name.split( '' ))];
+    let _range = [];
+    args.forEach( arg => { _range.push( parseInt( arg ) ); } );
+    _range.sort( ( a, b ) => a - b );
+    const _sides = ( ( sides.length > 0 ) ? sides : ['t','b','l','r'] );
+    const _start = ( ( _range.length > 0 ) ? _range[0] : 0 );
+    const _end = ( ( _range.length > 1 ) ? _range[1] : 100 );
+    const _result = { sides: [ ..._sides ], range: { start: _start, end: _end } }
+    return _result;
 }
 
-function getPropValue( typeCode, name, args ) {
-    const type = typeCode.toUpperCase();
-    switch( type ) {
-        case 'B':
-            return ( whispData.behaviors.hasOwnProperty( name )
-                    ? { action: getActionValue( name ), condition: ( args[0] ? getConditionValue( args[0] ) : whispData.conditions.default ) }
-                    : { ...whispData.behaviors.default, condition: whispData.conditions.default } );
-        case 'L': 
-            return ( lightMapImages.hasOwnProperty( name ) 
-                    ? lightMapImages[ name ] 
-                    : lightMapImages.default );
-        case 'WS': case 'LS':
-            return ( !( isNaN( parseInt( name ) ) ) ? parseInt( name ) : 1 );
-        case '@':
-            return getSpawnLocValue( name, args );
-        default: return name;
+function getBehaviorValue( args, _i ) {
+    let actions = [];
+    let conditions = [];
+    args.forEach( segment => {
+        const values = segment.split( '.' );
+        const [ prefix, ...vals ] = values;
+        if( prefix === 'if' || prefix === 'on' || prefix === 'when' || prefix === 'while' ) {
+            conditions.push( new Condition( vals, _i ) );
+        } else {
+            actions.push( new Action( values, _i ) );
+        }
+    } );
+    const behavior = { actions: actions, conditions: conditions };
+    return behavior;
+}
+
+function getScaleValue( segments ) {
+    const args = [];
+    segments.forEach( seg => {
+        const pSeg = parseInt( seg );
+        if( !( isNaN( pSeg ) ) ) {
+            args.push( pSeg );
+        }
+    } );
+    args.sort( ( a, b ) => a - b );
+    if( args.length > 1 ) {
+        return { min: args[0], max: args[1], 
+            current : args[0] + ( args[1] - args[0] ) * Math.random()
+        };
+    } 
+    if( args.length === 1 ) {
+        return { min: args[0], max: args[0], current : args[0] };
     }
+    return { min: 3, max: 3, current: 3 };
 }
-
-function newSpawnCoords ( spawnLocArray ) { 
-    const spawnLoc = ( ( spawnLocArray.length > 0 ) 
-            ? spawnLocArray : [ { sides: ['t','b','l','r'], range: { start:0, end:100 } } ] );
+function getSideLength( whichSide ) {
+    if( whichSide.side === 't' || whichSide.side === 'b' ) { 
+        return whichSide.highX - whichSide.lowX; 
+    }
+    else if( whichSide.side === 'l' || whichSide.side === 'r' ) { 
+        return whichSide.highY - whichSide.lowY; 
+    }
+    return 0;
+}
+function newSpawnCoords ( [...spawnLocArray] ) { 
+    const spawnLoc = ( ( spawnLocArray.length > 0 ) ? spawnLocArray 
+                : [ { sides: ['t','b','l','r'], range: { start: 0, end: 100 } } ] );
     const sideSpawn = { 
         t: { lowX: 0, highX: getWidth(), lowY: -spawnMargin, highY: -spawnMargin }, 
         b: { lowX: 0, highX: getWidth(), lowY: getHeight() + spawnMargin, highY: getHeight() + spawnMargin },
         l: { lowX: -spawnMargin, highX: -spawnMargin, lowY: 0, highY: getHeight()}, 
         r: { lowX: getWidth() + spawnMargin, highX: getWidth() + spawnMargin, lowY: 0, highY: getHeight() }, 
     };
-    const getSideLength = ( whichSide ) => {
-        if( whichSide.side === 't' || whichSide.side === 'b' ) { 
-            return whichSide.highX - whichSide.lowX; 
-        }
-        else if( whichSide.side === 'l' || whichSide.side === 'r' ) { 
-            return whichSide.highY - whichSide.lowY; 
-        }
-    }
+    
     spawnLoc.forEach( loc => {
-        loc.sides.forEach( side => {
+        (loc.sides).forEach( side => {
             if( side === 'b' || side === 't' ) {
                 sideSpawn[ side ] = { 
-                    lowX: getWidth() * loc.range.start/100,
-                    highX: getWidth()* loc.range.end/100
+                    lowX: Math.floor( getWidth() * loc.range.start / 100 ),
+                    highX: Math.floor( getWidth() * loc.range.end / 100 )
                 };
             } else if( side === 'r' || side === 'l' ) {
                 sideSpawn[ side ] = { 
-                    lowY: getHeight() * loc.range.start/100,
-                    highY: getHeight() * loc.range.end/100
+                    lowY: Math.floor( getHeight() * loc.range.start / 100 ),
+                    highY: Math.floor( getHeight() * loc.range.end / 100 )
                 };
             }
         } );
     } );
-    const sideSpawnArray = [ { ...sideSpawn['t'], side: 't' }, 
-                            {...sideSpawn['b'], side: 'b'}, 
-                            {...sideSpawn['l'], side: 'l'}, 
-                            {...sideSpawn['r'], side: 'r'} ];
+    const sideSpawnArray = [ { ...(sideSpawn.t), side: 't' }, 
+                            { ...(sideSpawn.b), side: 'b' }, 
+                            { ...(sideSpawn.l), side: 'l' }, 
+                            { ...(sideSpawn.r), side: 'r' } ];
     let totalWeight = 0;
     sideSpawnArray.forEach( s => { totalWeight += getSideLength( s ); } );
-    const rand = totalWeight * Math.random();
+    const rand = Math.floor( totalWeight * Math.random() );
     let result = { x: 0, y: 0 };
     let min = 0;
     sideSpawnArray.forEach( s => { 
         const w = getSideLength( s );
         if( rand >= min && rand < min + w ) {
             if( s.side === 't' || s.side === 'b' ) { 
-                result = { 
-                    x: rand - min + s.lowX , 
-                    y: ( s.side === 't' ? -spawnMargin : getHeight() + spawnMargin ) 
-                }; 
+                    result.x = rand - min + s.lowX;
+                    result.y = ( ( s.side === 't' ) ? -spawnMargin : getHeight() + spawnMargin ); 
             }
             else if( s.side === 'l' || s.side === 'r' ) { 
-                result = { 
-                    x: ( s.side === 'l' ? -spawnMargin : getWidth() + spawnMargin ), 
-                    y: rand - min + s.lowY 
-                }; 
+                result.x = ( ( s.side === 'l' ) ? -spawnMargin : getWidth() + spawnMargin ); 
+                result.y = rand - min + s.lowY; 
             }
         }
         min += w;
@@ -199,7 +195,7 @@ function newSpawnCoords ( spawnLocArray ) {
 }
 
 const pointDistance = ( x1, y1, x2, y2 ) => Math.sqrt( Math.pow( x1 - x2, 2 ) + Math.pow( y1 - y2, 2 ) );
-const pointDirection = ( x1, y1, x2, y2 ) => ( Math.atan2( y1 - y2, x1 - x2) + 2 * Math.PI ) % ( 2 * Math.PI );
+const pointDirection = ( x1, y1, x2, y2 ) => ( Math.atan2( y2 - y1, x1 - x2) + 2 * Math.PI ) % ( 2 * Math.PI );
 const pointVector = ( x1, y1, x2, y2 ) => [ pointDistance( x1, y1, x2, y2 ), pointDirection( x1, y1, x2, y2 ) ];
 const turnAmount = ( _dir1, _dir2 ) => {
     const array = [ _dir1 - _dir2, _dir1 + 2 * Math.PI - _dir2, _dir1 - 2 * Math.PI - _dir2 ];
@@ -208,164 +204,96 @@ const turnAmount = ( _dir1, _dir2 ) => {
     return best;
 }
 
-class Whisp {
-    constructor( whispString ) {
-        const data = whispString.split( ' ', 20 );
-        data.forEach( phrase => { 
-            const [ phraseType, phraseName, ...args ] = phrase.split( '-', 4 );
-            const propType = getPropType( phraseType );
-            this.spawnLoc = [];
-            this.behaviors = [];
-            switch( phraseType.toUpperCase() ) {          
-                case 'T':                                                        // if 'T' prefix used, 
-                    Object.assign( this, whispData.whispTypeProps[ phraseName ] ); //add default props for specified type
-                    this[ propType ] = getPropValue( phraseType, phraseName, args );
-                    break;
-                case 'B', '@': this[ propType ].push( getPropValue( phraseType, phraseName, args ) ); break;
-                default: this[ propType ] = getPropValue( phraseType, phraseName, args );
+class Condition {
+    constructor( _args, _i ) { 
+        const [ subject, type, ...args ] = _args;
+        this.args = [];
+        this.subject = subject;
+        this.type = type;
+        args.forEach( arg => {
+            const argInt = parseInt( arg );
+            if( !( isNaN( argInt ) ) ) {
+                this.args.push( ( !( this.type === 'direction' )
+                        ? argInt : 2 * Math.PI * argInt / 360 ) );
+            } else {
+                this.args.push( arg );
             }
         } );
-        const coords = newSpawnCoords(this.spawnLoc);
-        this.x = coords.x;
-        this.y = coords.y;
-        this.xspeed = 0;
-        this.yspeed = 0;
-        this.id = nextWhispId;
-        nextWhispId += 1;
-        console.log(this)
+        if( this.type === 'direction' ) {
+            this.args.forEach( arg => { arg = 2 * Math.PI * arg / 360; } );
         }
-
-    evaluateCondition( condition, ctx ) {
-        const { subject, type, args } = condition;
-        let [ maxDistance, minDistance, distance, x1, y1 ] = [0,0,0,0,0];
+        this.whispIndex = _i; 
+    }
+    evaluate() {
         let reverseLogic = false;
-        switch( subject ) {
+        let [ max, min, distance, x1, y1, subjectSpeed, subjectDirection ] = [0,0,0,0,0,0,0];
+        switch( this.subject ) {
+            case 'nearest':
             case 'cursor': 
-                switch( type ) {
+                switch( this.type ) {
+                    case 'out':
                     case 'outside': reverseLogic = true;
                     case 'within':
-                        [ x1, y1 ] = [ mouseObj.x, mouseObj.y ];
-                        maxDistance = ( ( args.length === 1 ) 
-                                ? args[0] : ( ( args.length > 1 ) ? args[1] : this.lightScale * 32 ));
-                        minDistance = ( ( args.length <= 1 ) ? 0 : args[0] );
-                        distance = pointDistance( x1, y1, this.x, this.y );
-                        return ( !reverseLogic ? ( distance <= maxDistance && distance >= minDistance ) 
-                                : !( distance <= maxDistance && distance >= minDistance ) );
+                    case 'in':
+                        [ x1, y1 ] = whispList[this.whispIndex].getTargetCoords( this.subject );
+                        max = ( ( this.args.length === 1 ) 
+                                ? this.args[0] : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 ));
+                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
+                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
+                        return ( !reverseLogic ? ( distance <= max && distance >= min ) 
+                                : !( distance <= max && distance >= min ) );
                     case 'speed':
-
-                        return true;
+                        subjectSpeed = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[0];
+                        max = ( ( this.args.length === 1 ) 
+                                ? this.args[0] : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 ));
+                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
+                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
+                        return ( subjectSpeed <= max && subjectSpeed >= min );
+                    case 'direction':
+                        subjectDirection = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[1];
+                        max = ( ( this.args.length === 1 ) ? this.args[0] 
+                                : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 )
+                        );
+                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
+                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
+                        return ( subjectSpeed <= max && subjectSpeed >= min );
                     default: return true;
                 }
             case 'area':
-                switch( type ) {
+                switch( this.type ) {
+                    case 'out':
                     case 'outside': reverseLogic = true;
-                    case 'in': 
-                        return true;
+                    case 'within':
+                    case 'in': return true;
                     default: return true;
                 }
             break;
-            default: return; 
+            default: return true; 
         }
     }
-    getNearestWhispCoords() {
-        let nearest = 9999999;
-        let nearestCoords = false;
-        whispList.forEach( _whisp => {
-            if( !( _whisp.id === this.id ) ) {
-                const dist = pointDistance( this.x, this.y, _whisp.x, _whisp.y );
-                if( nearest > dist ) {
-                    nearest = dist;
-                    nearestCoords = [ _whisp.x, _whisp.y ];
-                }
+}
+
+class Action {
+    constructor( _args, _i ) { 
+        const [ _act, ...actArgs ] = _args; 
+        this.act = _act;
+        this.args = [];
+        actArgs.forEach( arg => {
+            const argInt = parseInt( arg );
+            if( !( isNaN( argInt ) ) ) {
+                this.args.push( argInt );
+            } else {
+                this.args.push( arg );
             }
         } );
-        return nearestCoords;
+        if( this.act === 'follow' || this.act === 'flee' )
+            this.args[3] = 2 * Math.PI * this.args[3] / 360;
+        this.whispIndex = _i; 
     }
-    getTargetCoords( target ) {
-        switch( target ) {
-            default:
-            case 'cursor': return [ mouseObj.x, mouseObj.y ];
-            case 'nearest': return this.getNearestWhispCoords();
-        }
-    }
-    moveStep() {
-        this.x += this.xspeed; 
-        this.y += this.yspeed;
-    }
-    getDirection() { return pointDirection( 0, 0, this.yspeed, this.xspeed ); }
-    getSpeed() { return pointDistance( 0, 0, this.xspeed, this.yspeed ); }
-    getVector() { 
-        return [
-            this.getSpeed(),
-            this.getDirection()
-        ]; 
-    }
-    getSpeedXY( [ _speed, _dir ] ) {
-        return [ _speed * Math.cos( _dir ), _speed * Math.sin( _dir ) ];
-    }
-    turn( turnAngle ) {
-        const [ _speed, _dir ] = this.getVector();
-        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed, _dir + turnAngle ] )
-    }
-    turnTowardDirection( targetDirection, turnAngle ) {
-        const maxAngle = turnAmount( this.getDirection(), targetDirection );
-        this.turn(( Math.abs( turnAngle ) > Math.abs( maxAngle ) ? maxAngle : Math.sign( maxAngle ) * turnAngle ) );
-    }
-    turnTowardPoint( _x, _y, turnAngle ) {
-        const maxAngle = turnAmount( this.getDirection(), pointDirection( this.x, this.y, _x, _y ) );
-        this.turn( ( Math.abs( turnAngle ) > Math.abs( maxAngle ) ? maxAngle : Math.sign( maxAngle ) * turnAngle ) );
-    }
-    turnAwayFromPoint( _x, _y, turnAngle ) {
-        const maxAngle = turnAmount( this.getDirection(), pointDirection( _x, _y, this.x, this.y ) );
-        this.turn( ( Math.abs( turnAngle ) > Math.abs( maxAngle ) ? maxAngle : Math.sign( maxAngle ) * turnAngle ) );
-    }
-    slowDown( _amount, _minSpeed ) {
-        const [ _speed, _dir ] = this.getVector();
-        const dSpeed = ( _speed - _amount >= _minSpeed ? _amount : _speed - _minSpeed );
-        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed - dSpeed, _dir ] );
-    }
-    speedUp( _amount, _maxSpeed ) {
-        const [ _speed, _dir ] = this.getVector();
-        const dSpeed = ( _speed + _amount <= _maxSpeed ? _amount : _maxSpeed - _speed );
-        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed + dSpeed, _dir ] );
-    }
-
-    /* behavior: { 
-            action: { act:(String), args:[...] },
-            condition: { subject:(String), type:(String), args:[...] },
-            stimulus: { subject:(String), type:(String), args:[...] } 
-        }
-    */
-    /*
-    BEHAVIORS:
-    'follow.{whatToFollow?}.{speed?}.{...followModifiers}'
-    'turn.{away/toward}
-    'flee.{runFromWhat?}.{speed?}.{...runAwayModifiers}'
-    'orbit.{whatToOrbit?}.{orbitSpeed?}.{orbitRadius?}'
-    'drift.{minSpeed?}.{maxSpeed?}.{driftDirection?}'
-    'explore.{exploreLowSpeed?}.{exploreHighSpeed}'
-    'wiggle.{minAmplitude}.{maxAmplitude}.{minFreq}.{maxFreq}'
-    */
-    //      conditionString: "{ conditionType }.{ arg1 }.{ arg2 }.{ arg3 }"
-    // "B-follow.cursor.fast-on.click.#button1-if.cursor.within.100
-    // condition: { subject, type, args[]}
-    follow( [ target, maxSpeed, acceleration, turnSpeed ] ) {
-        const [ _x, _y ] = this.getTargetCoords( target );
-        this.turnTowardPoint( _x, _y, turnSpeed );
-        this.speedUp( acceleration, maxSpeed );
-    }
-    flee( [ target, maxSpeed, acceleration, turnSpeed ] ) {
-        const [ _x, _y ] = this.getTargetCoords( target );
-        this.turnAwayFromPoint( _x, _y, turnSpeed );
-        this.speedUp( acceleration, maxSpeed );
-    }
-
-    performAction( action, ctx ) {
-        const { act, args } = action;
-
-        switch( act ) {
+    perform() {
+        switch( this.act ) {
             case 'follow':
-                this.follow( args );
+                whispList[this.whispIndex].follow( [ ...( this.args ) ] );
                 break;
             case 'drift':
 
@@ -377,71 +305,221 @@ class Whisp {
 
                 break;
             case 'flee':
-                this.flee( args );
+                whispList[this.whispIndex].flee( [ ...( this.args ) ] );
                 break;
             default: break;
         }
     }
-    executeBehaviors( time, ctx ) {
+}
+
+class Whisp {
+    constructor( whispString, i ) {
+        const data = whispString.split( ' ', 20 );
+        this.behaviors = [];
+        
+        const spawnData = []
+        data.forEach( phrase => { 
+            const [ phraseType, phraseName, ...args ] = phrase.split( '-', 20 );
+            const propType = getPropType( phraseType );
+            switch( phraseType.toUpperCase() ) {          
+                case 'T': // TYPE - add default props for specified whisp type
+                    Object.assign( this, whispData.whispTypeProps[ phraseName ] ); 
+                    this[ propType ] = phraseName;
+                    break;
+                case 'B': // BEHAVIOR - add to behavior ( actions[] & conditions[] ) to behaviors[]
+                    (this.behaviors).push( getBehaviorValue( [ phraseName, ...args ], i ) ); 
+                    break;
+                case 'WS': case 'LS': // WHISP SIZE or LIGHT SIZE - set size (x32px) of whisp or light
+                    this[ propType ] = getScaleValue( [ phraseName, ...args ] );
+                    break;
+                case 'WC': case 'LC': // WHISP COLOR or LIGHT COLOR - set color from colorHues
+                    this[ propType ] = ( colorHues.hasOwnProperty( phraseName.toLowerCase() ) 
+                                ? colorHues[ phraseName.toLowerCase() ] 
+                                : colorHues[ 'white' ] );
+                    break;
+                case '@': // SPAWN LOCATION - set which sides/ coordinate ranges where whisp can spawn
+                    spawnData.push( getSpawnLocValue( [ phraseName, ...args ] ) ); 
+                    break;
+                default: console.log(`Whisp property '${ phraseType }' not recognized in whisp[${ i }].`);
+            }
+        } );
+        this.spawnLoc = spawnData;
+        const c = newSpawnCoords( spawnData );
+        this.coords = { x: c.x, y: c.y };
+        this.xspeed = 0;
+        this.yspeed = 0;
+        this.id = nextWhispId();
+    }
+    
+    getNearestWhispIndex() {
+        let nearest = 9999999;
+        let nearestIndex = -1;
+        whispList.forEach( ( _whisp, _i ) => {
+            if( !( _whisp.id === this.id ) ) {
+                const dist = pointDistance( this.coords.x, this.coords.y, _whisp.coords.x, _whisp.coords.y );
+                if( nearest > dist ) {
+                    nearest = dist;
+                    nearestIndex = _i;
+                }
+            }
+        } );
+        return nearestIndex;
+    }
+    getNearestWhisp() { return whispList[ this.getNearestWhispIndex() ]; }
+    getNearestWhispCoords() { 
+        const _target = this.getNearestWhisp();
+        return [ _target.coords.x, _target.coords.y ];
+    }
+    getNearestWhispVector() {
+        const _target = this.getNearestWhisp();
+        return [ _target.getSpeed(), _target.getDirection() ];
+    }
+    getNearestWhispSpeed() { return ( this.getNearestWhispVector() )[0]; }
+    getNearestWhispDirection() { return ( this.getNearestWhispVector() )[1]; }
+    getTargetCoords( target ) {
+        switch( target ) {
+            default:
+            case 'cursor': return [ mouseObj.x, mouseObj.y ];
+            case 'nearest': return this.getNearestWhispCoords();
+        }
+    }
+    getTargetVector( target ) {
+        switch( target ) {
+            default:
+            case 'cursor': return [ mouseObj.speed, mouseObj.direction ];
+            case 'nearest': return this.getNearestWhispVector();
+        }
+    }
+    moveStep() {
+        this.coords.x += this.xspeed * timeObj.delta;
+        this.coords.y += this.yspeed * timeObj.delta;
+    }
+    getDirection() { return pointDirection( 0, 0, -this.xspeed, -this.yspeed ); }
+    getSpeed() { return pointDistance( 0, 0, this.xspeed, this.yspeed ); }
+    getVector() { 
+        return [
+            this.getSpeed(),
+            this.getDirection()
+        ]; 
+    }
+    getSpeedXY( [ _speed, _dir ] ) {
+        return [ _speed * Math.cos( _dir ), -_speed * Math.sin( _dir ) ];
+    }
+    turn( turnAngle ) {
+        const adjustedAngle = turnAngle * timeObj.delta;
+        const [ _speed, _dir ] = this.getVector();
+        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed, _dir + adjustedAngle ] )
+    }
+    turnTowardDirection( targetDirection, turnAngle ) {
+        const maxAngle = turnAmount( this.getDirection(), targetDirection );
+        this.turn(( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
+                ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
+    }
+    turnTowardPoint( _x, _y, turnAngle ) {
+        const maxAngle = turnAmount( this.getDirection(), pointDirection( this.coords.x, this.coords.y, _x, _y ) );
+        this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
+                ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
+    }
+    turnAwayFromPoint( _x, _y, turnAngle ) {
+        const maxAngle = turnAmount( this.getDirection(), pointDirection( _x, _y, this.coords.x, this.coords.y ) );
+        this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
+                ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
+    }
+    slowDown( _amount, _minSpeed ) {
+        const [ _speed, _dir ] = this.getVector();
+        const dSpeed = ( _speed - _amount * timeObj.delta >= _minSpeed 
+                ? _amount * timeObj.delta : _speed - _minSpeed );
+        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed - dSpeed, _dir ] );
+    }
+    speedUp( _amount, _maxSpeed ) {
+        const [ _speed, _dir ] = this.getVector();
+        const dSpeed = ( _speed + _amount * timeObj.delta <= _maxSpeed 
+                ? _amount * timeObj.delta : _maxSpeed - _speed );
+        [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed + dSpeed, _dir ] );
+    }
+
+    follow( [ target, maxSpeed, acceleration, turnSpeed ] ) {
+        const [ _x, _y ] = this.getTargetCoords( target );
+        this.turnTowardPoint( _x, _y, turnSpeed );
+        this.speedUp( acceleration, maxSpeed );
+    }
+    flee( [ target, maxSpeed, acceleration, turnSpeed ] ) {
+        const [ _x, _y ] = this.getTargetCoords( target );
+        this.turnAwayFromPoint( _x, _y, turnSpeed );
+        this.speedUp( acceleration, maxSpeed );
+    }
+    executeBehaviors() {
         this.behaviors.forEach( behavior => {
-            const { actions, stimuli, conditions } = behavior;
+            const { actions, conditions } = behavior;
             let conditionsMet = true;
-            conditions.forEach( cond => { if( conditionsMet ) conditionsMet = this.evaluateCondition( cond, ctx ); } );
+            conditions.forEach( _cond => { if( conditionsMet ) conditionsMet = _cond.evaluate(); } );
             if( conditionsMet ) {
-                actions.forEach( _action => { this.performAction( _action ) } );
+                actions.forEach( _action => { _action.perform() } );
             }
         } );
     }
+    getLightGradient() {
+        const gradient = ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale.current );
+        const startColor = (  ( this.lightColor >= 0 )
+                            ? `hsla(${ this.lightColor },100%,50%,1)`
+                            : `hsla(0,100%,100%,1)` );
+        const endColor = ( ( this.lightColor >= 0 )
+                            ? `hsla(${ this.lightColor },100%,50%,0)`
+                            : `hsla(0,100%,100%,0)` );
+        gradient.addColorStop( 0, startColor );
+        gradient.addColorStop( 0.1, startColor );
+        gradient.addColorStop( 1, endColor );
+        return gradient;
+    };
+    drawLight() {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.beginPath();
+        ctx.fillStyle = this.getLightGradient();
+        ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale.current, 32 * this.lightScale.current, 0, 0, 2 * Math.PI );
+        ctx.fill();
+    }
+    step() {
+        this.executeBehaviors();
+        this.moveStep();
+        this.drawLight();
+    }
 }
 
-const whispList = [ new Whisp("T-whisp LS-4 LC-yellow WS-2 WC-yellow @-tblr-25-75" ),
-                    new Whisp("T-whisp LS-2 LC-cyan WS-2 WC-cyan @-rlbt-40-60" ),
-                    new Whisp("T-whisp LS-5 LC-white WS-2 WC-white @-lr-0-0 @-tb-0-100" ),
-                    new Whisp("T-whisp LS-2 LC-fuschia WS-2 WC-fuschia @-tb-0-0 @-rl-0-100" )
-                ];
+const whispList = [ 
+    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1000 LS-4 LC-yellow WS-2 WC-yellow @-tblr-25-75", 0 )),
+    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-2 LC-cyan WS-2 WC-cyan @-rlbt-40-60", 1 )),
+    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-5 LC-white WS-2 WC-white @-lr-0-0 @-tb-0-100", 2 )),
+    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-2 LC-fuschia WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 3 )) 
+];
 whispList.forEach( whispy => { 
-    whispy.x = 40 + Math.random()*(getWidth()-80); 
-    whispy.y = 40 + Math.random()*(getHeight()-80); 
-} )
-
-const getLightGradient = ( _x, _y, _lightScale, _lightColor, ctx ) => {
-    const gradient = ctx.createRadialGradient(_x, _y, 0, 
-                        _x, _y, 32 * _lightScale );
-    const startColor = ( !( _lightColor === 'white' ) 
-                        ? `hsla(${colorHues[_lightColor]},100%,50%,1)`
-                        : `hsla(0,100%,100%,1)` );
-    const endColor = ( !( _lightColor === 'white' ) 
-                        ? `hsla(${colorHues[_lightColor]},100%,50%,0)`
-                        : `hsla(0,100%,100%,0)` );
-    gradient.addColorStop(0, startColor );
-    gradient.addColorStop(0.1, startColor );
-    gradient.addColorStop(1, endColor );
-    return gradient;
-};
+    whispy.x = 40 + Math.random() * ( getWidth() - 80 ); 
+    whispy.y = 40 + Math.random() * ( getHeight() - 80 ); 
+} );
 
 function draw() {
-    const ctx = document.getElementById("whisps-canvas").getContext("2d");
     const w = getWidth();
     const h = getHeight();
 
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.clearRect(0, 0, w, h); // clear canvas
-
     timeObj.lastDrawn = timeObj.current;
     timeObj.current = ( new Date() ).getTime() / 1000;
-    const delta = timeObj.current - timeObj.lastDrawn;
+    timeObj.delta = timeObj.current - timeObj.lastDrawn;
+    
+    mouseObj.speed = pointDistance( prevMouseCoords[0], prevMouseCoords[1], mouseObj.x, mouseObj.y ) / timeObj.delta;
+    mouseObj.direction = ( !( mouseObj.speed === 0 ) 
+                ? pointDirection( prevMouseCoords[0], prevMouseCoords[1], mouseObj.x, mouseObj.y ) : 0 );
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, w, h); // clear canvas
     
     whispList.forEach( whisp => {
-        ctx.globalCompositeOperation = 'screen';
-        ctx.beginPath();
-        ctx.fillStyle = getLightGradient( whisp.x, whisp.y, whisp.lightScale, whisp.lightColor, ctx );
-        ctx.ellipse( whisp.x, whisp.y, 32 * whisp.lightScale, 32 * whisp.lightScale, 0, 0, 2 * Math.PI );
-        ctx.fill();
+        whisp.step();
     } );
+
     ctx.globalCompositeOperation = "screen";
     ctx.fillStyle = "rgba(0, 0, 0, 1)";
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect( 0, 0, w, h );
 
+    prevMouseCoords = [ mouseObj.x, mouseObj.y ];
     window.requestAnimationFrame(draw);
 }
 
