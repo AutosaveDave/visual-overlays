@@ -14,6 +14,7 @@ const getHeight = () => canvasEl.clientHeight;
 const handleResize = () => { canvasEl.height = getHeight(); canvasEl.width = getWidth(); };
 
 const ctx = canvasEl.getContext("2d");
+const shadowAlpha = 1;
 const timeObj = { 
     lastDrawn: ( new Date() ).getTime() / 1000 - ( 1000 / 60 ), 
     current: ( new Date() ).getTime() / 1000, 
@@ -45,8 +46,43 @@ function init() {
     window.addEventListener( 'mousedown', handleMouseDown );
 }
 
-const colorHues = { 'red':0, 'orange':30, 'yellow':60, 'green':100, 'sea':150, 'cyan':180, 
-    'sky':200, 'blue':240, 'indigo':260, 'purple':280, 'pink':300, 'fuschia':335, 'white':-1 };      
+const colorHues = { red:0, orange:30, yellow:60, green:100, sea:150, cyan:180, 
+    sky:200, blue:240, indigo:260, purple:280, pink:300, fuschia:335, white:-1 };
+const colorSets = {
+    all: Object.keys( colorHues ), any: Object.keys( colorHues ),
+    notWhite: Object.keys( colorHues ).slice( 0, Object.keys( colorHues ).length - 1 ),
+    primary: [ colorHues.red, colorHues.blue, colorHues.yellow ],
+    usa: [ colorHues.red, colorHues.white, colorHues.blue ],
+    rgb: [ colorHues.red, colorHues.green, colorHues.blue ],
+    eldritch: [ colorHues.fuschia, colorHues.purple, colorHues.indigo, colorHues.pink ],
+    fire: [ colorHues.red, colorHues.orange, colorHues.yellow ],
+    soulfire: [ colorHues.yellow, colorHues.green, colorHues.sea ],
+    aquatic: [ colorHues.blue, colorHues.sky, colorHues.sea, colorHues.cyan ],
+    seaweed: [ colorHues.blue, colorHues.sky, colorHues.sea, colorHues.cyan, colorHues.green, colorHues.indigo ],
+    mystic: [ colorHues.white, colorHues.cyan, colorHues.sky, colorHues.yellow ],
+    mythic: [ colorHues.yellow, colorHues.cyan, colorHues.fuschia ],
+};
+const rndColorShift = ( val, maxShift ) => {
+    if( val === -1 ) return -1; // white stays white
+    let v = ( val - maxShift + Math.floor( 2 * maxShift * Math.random() ) );
+    if( v >= 360 ) v -= 360;
+    if( v < 0 ) v += 360;
+    return v;
+}
+const rndShift = ( val, maxShift ) => ( val - maxShift + Math.floor( (2 * maxShift * Math.random() ) * 100 ) / 100 );
+const rndChoose = array => array[ Math.floor( ( array.length - 1 ) * Math.random() ) ];
+const getColor = color => {
+    if( typeof color === 'string' ){
+        if( colorHues.hasOwnProperty( color ) )
+            return rndColorShift( colorHues[ color ], 10 );
+        else if( colorSets.hasOwnProperty( color ) )
+            return rndColorShift( rndChoose( colorSets[ color ] ), 10 );
+    }
+    if( typeof color === 'number' ) {
+        return rndColorShift( color, 10 );
+    }
+    return -1;
+}
 
 const whispData = {
     propTypes: {
@@ -58,27 +94,45 @@ const whispData = {
         'W' :   'whispImage',
         'WS':   'whispScale',
         'WC':   'whispColor',
+        'M' :   'mods',
+        'MOD':  'mods',
         '@' :   'spawnLoc',
         default: 'type',
     },
-    whispTypeProps: {
-        default: {},
-        'whisp': {
-            lightScale: 1,
-            lightColor: '#FFFFFF',
-            whispScale: 1,
-            whispColor: '#FFFFFF',
-        }
-    },
-    behaviors: {
-        default: () => {},
-        'follow': () => {},
-    },
-    conditions: {
-        default: () => true,
-        'always': () => true,
-    }
 }
+
+const degToRad = deg => 2 * Math.PI * deg / 360; 
+const modVals = {     // arrays go
+    maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 900, 1000 ],
+    acceleration: [ 0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 ],
+    turnSpeed: [ 0, degToRad( 40 ), degToRad( 80 ), degToRad( 120 ), degToRad( 160 ), degToRad( 200 ), degToRad( 240 ), degToRad( 280 ), degToRad( 320 ), degToRad( 360 ), degToRad( 400 ) ],
+
+}
+
+const mods = {
+    whisp: {
+        default: {
+            main:{
+                type: 'whisp', 
+                lightColor: 'mystic',
+                lightScale: { min: 2, max: 5 }, whispScale: { min: 1, max: 1 },
+            },
+            behaviors: [ {
+                actions: [ { 
+                    act: 'follow', target: 'cursor', 
+                    maxSpeed: modVals.maxSpeed[4], 
+                    acceleration: modVals.acceleration[2],
+                    turnSpeed: modVals.turnSpeed[4]
+                } ]
+            } ],
+        },
+    },
+
+    follow: {
+        default: { main: {}, behaviors: [] }, // gets added to whisp regardless of arguments
+    },
+    fast: { bmod: { actions: {}, conditions: {} } }
+};
 
 function getPropType( typeCode ) {
     const type = typeCode.toUpperCase();
@@ -106,30 +160,23 @@ function getBehaviorValue( args, _i ) {
         const values = segment.split( '.' );
         const [ prefix, ...vals ] = values;
         if( prefix === 'if' || prefix === 'on' || prefix === 'when' || prefix === 'while' ) {
-            conditions.push( new Condition( vals, _i ) );
+            conditions.push( ( new Condition( vals, _i ) ) );
         } else {
-            actions.push( new Action( values, _i ) );
+            actions.push( ( new Action( values, _i ) ) );
         }
     } );
     const behavior = { actions: actions, conditions: conditions };
     return behavior;
 }
 
-function getScaleValue( segments ) {
-    const args = [];
-    segments.forEach( seg => {
-        const pSeg = parseInt( seg );
-        if( !( isNaN( pSeg ) ) ) {
-            args.push( pSeg );
-        }
-    } );
+function getScaleValue( args ) {
     args.sort( ( a, b ) => a - b );
-    if( args.length > 1 ) {
+    if( args.length > 1  && !( args[0] === args[1] ) ) {
         return { min: args[0], max: args[1], 
-            current : args[0] + ( args[1] - args[0] ) * Math.random()
+            current : Math.floor( 100 * ( args[0] + ( args[1] - args[0] ) * Math.random() ) ) / 100
         };
     } 
-    if( args.length === 1 ) {
+    if( args.length === 1 || args[0] === args[1] ) {
         return { min: args[0], max: args[0], current : args[0] };
     }
     return { min: 3, max: 3, current: 3 };
@@ -149,7 +196,7 @@ function newSpawnCoords ( [...spawnLocArray] ) {
     const sideSpawn = { 
         t: { lowX: 0, highX: getWidth(), lowY: -spawnMargin, highY: -spawnMargin }, 
         b: { lowX: 0, highX: getWidth(), lowY: getHeight() + spawnMargin, highY: getHeight() + spawnMargin },
-        l: { lowX: -spawnMargin, highX: -spawnMargin, lowY: 0, highY: getHeight()}, 
+        l: { lowX: -spawnMargin, highX: -spawnMargin, lowY: 0, highY: getHeight() }, 
         r: { lowX: getWidth() + spawnMargin, highX: getWidth() + spawnMargin, lowY: 0, highY: getHeight() }, 
     };
     
@@ -204,62 +251,86 @@ const turnAmount = ( _dir1, _dir2 ) => {
     return best;
 }
 
+const fixArgs = ( [ ...args ] ) => {
+    const newArgs = [];
+    args.forEach( arg => {
+        const argInt = parseInt( arg );
+        if( !( isNaN( argInt ) ) ) {
+            newArgs.push( argInt );
+        } else {
+            newArgs.push( arg );
+        }
+    } );
+    return newArgs;
+}
+
+const getConditionArgsObj = ( [ subject, type, ...args ], i ) => {
+    const newArgs = fixArgs( args );
+    const result = { subject: subject, type: type, whispIndex: i }
+    if(newArgs.length > 0 ){
+        switch( type ) {
+            default:
+            case 'outside': case 'out':
+            case 'within': case 'in':
+            case 'speed': case 'direction':
+                Object.assign( result, ( 
+                    ( newArgs.length > 1 ) 
+                    ?  { min: newArgs[0], max: newArgs[1] }
+                    :  { min: 0, max: newArgs[0] }
+                ) );
+                break;
+        }
+    }
+    if( type === 'direction' ) {
+        result.min = result.min * 2 * Math.PI / 360;
+        result.min = result.min * 2 * Math.PI / 360;
+    }
+    return result;
+}
+const distShift = { min: 0.08, max: 0.08 };
+const rndConditionShifts = {
+    within: distShift, in: distShift, outside: distShift, out: distShift
+};
+const getCondShiftMultiplierObj = type => ( rndConditionShifts.hasOwnProperty( type ) ? rndConditionShifts[ type ] : {} );
+const getCondShiftMultiplier = type => ( Object.entries( getCondShiftMultiplierObj( type ) ) );
+
 class Condition {
-    constructor( _args, _i ) { 
-        const [ subject, type, ...args ] = _args;
-        this.args = [];
-        this.subject = subject;
-        this.type = type;
-        args.forEach( arg => {
-            const argInt = parseInt( arg );
-            if( !( isNaN( argInt ) ) ) {
-                this.args.push( ( !( this.type === 'direction' )
-                        ? argInt : 2 * Math.PI * argInt / 360 ) );
-            } else {
-                this.args.push( arg );
+    constructor( _args, _i ) {
+        this.whispIndex = _i; 
+        if( Array.isArray( _args ) ){
+            Object.assign( this, getConditionArgsObj( _args, _i ) );
+        } else if( typeof _args === 'object' ) {
+            Object.assign( this, _args );
+        }
+        getCondShiftMultiplier( this.type ).forEach( ( [ key, val ] ) => {
+            if( this.hasOwnProperty( key ) ) {
+                Object.assign( this, rndShift( this[ key ], this[ key ] * val ) );
             }
         } );
-        if( this.type === 'direction' ) {
-            this.args.forEach( arg => { arg = 2 * Math.PI * arg / 360; } );
-        }
-        this.whispIndex = _i; 
     }
     evaluate() {
         let reverseLogic = false;
-        let [ max, min, distance, x1, y1, subjectSpeed, subjectDirection ] = [0,0,0,0,0,0,0];
+        let [ distance, x1, y1, subjectSpeed, subjectDirection ] = [0,0,0,0,0,0,0];
         switch( this.subject ) {
-            case 'nearest':
-            case 'cursor': 
+            case 'nearest': case 'cursor': 
                 switch( this.type ) {
                     case 'out':
                     case 'outside': reverseLogic = true;
                     case 'within':
                     case 'in':
                         [ x1, y1 ] = whispList[this.whispIndex].getTargetCoords( this.subject );
-                        max = ( ( this.args.length === 1 ) 
-                                ? this.args[0] : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 ));
-                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
                         distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
-                        return ( !reverseLogic ? ( distance <= max && distance >= min ) 
-                                : !( distance <= max && distance >= min ) );
+                        return ( !reverseLogic ? ( distance <= this.max && distance >= this.min ) 
+                                : !( distance <= this.max && distance >= this.min ) );
                     case 'speed':
                         subjectSpeed = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[0];
-                        max = ( ( this.args.length === 1 ) 
-                                ? this.args[0] : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 ));
-                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
-                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
-                        return ( subjectSpeed <= max && subjectSpeed >= min );
+                        return ( subjectSpeed <= this.max && subjectSpeed >= this.min );
                     case 'direction':
                         subjectDirection = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[1];
-                        max = ( ( this.args.length === 1 ) ? this.args[0] 
-                                : ( ( this.args.length > 1 ) ? this.args[1] : whispList[this.whispIndex].lightScale * 32 )
-                        );
-                        min = ( ( this.args.length <= 1 ) ? 0 : this.args[0] );
-                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
-                        return ( subjectSpeed <= max && subjectSpeed >= min );
+                        return ( subjectDirection <= this.max && subjectDirection >= this.min );
                     default: return true;
                 }
-            case 'area':
+            case 'area': // Not yet functional
                 switch( this.type ) {
                     case 'out':
                     case 'outside': reverseLogic = true;
@@ -267,78 +338,190 @@ class Condition {
                     case 'in': return true;
                     default: return true;
                 }
-            break;
             default: return true; 
         }
     }
 }
 
+const actionArgNames = { 
+    follow: [ 'target', 'maxSpeed', 'acceleration', 'turnSpeed' ],
+    flee:   [ 'target', 'maxSpeed', 'acceleration', 'turnSpeed' ],
+};
+
+const getActionArgsObj = ( [ act, ...args ], i ) => {
+    const result = { act: act, whispIndex: i }
+    const newArgs = fixArgs( args );
+    if( act === 'follow' || act === 'flee' )
+        newArgs[3] = 2 * Math.PI * newArgs[3] / 360;
+    if(newArgs.length > 0 ) {
+        newArgs.forEach( ( arg, _i ) => {
+            result[ actionArgNames[ act ][ _i ] ] = arg;
+        } );
+    }
+    return result;
+}
+
+const rndActionShifts = { maxSpeed: 30, turnSpeed: degToRad( 15 ), acceleration: 20 };
+
 class Action {
     constructor( _args, _i ) { 
-        const [ _act, ...actArgs ] = _args; 
-        this.act = _act;
-        this.args = [];
-        actArgs.forEach( arg => {
-            const argInt = parseInt( arg );
-            if( !( isNaN( argInt ) ) ) {
-                this.args.push( argInt );
-            } else {
-                this.args.push( arg );
-            }
+        
+        if( Array.isArray( _args ) ) { 
+            Object.assign( this, getActionArgsObj( _args, _i ) );
+        } else if( typeof _args === 'object' ) {
+            Object.assign( this, _args );
+        }
+        Object.keys( this ).forEach( k => {
+            if( this.hasOwnProperty( k )  && !( typeof this[ k ] === 'string' ) )
+            this[ k ] = rndShift( this[ k ], rndActionShifts[ k ] )
         } );
-        if( this.act === 'follow' || this.act === 'flee' )
-            this.args[3] = 2 * Math.PI * this.args[3] / 360;
-        this.whispIndex = _i; 
+        Object.assign( this, { whispIndex: _i } );
     }
-    perform() {
+    perform() {  
+        const args = [];
+        actionArgNames[ this.act ].forEach( argName => { args.push( this[ argName ] ) } );
         switch( this.act ) {
-            case 'follow':
-                whispList[this.whispIndex].follow( [ ...( this.args ) ] );
-                break;
-            case 'drift':
-
-                break;
-            case 'turn':
-
-                break;
-            case 'orbit':
-
-                break;
-            case 'flee':
-                whispList[this.whispIndex].flee( [ ...( this.args ) ] );
-                break;
+            case 'follow': whispList[this.whispIndex].follow( args ); break;
+            case 'drift': break;
+            case 'turn': break;
+            case 'orbit': break;
+            case 'flee': whispList[this.whispIndex].flee( args ); break;
             default: break;
         }
     }
+}
+
+function getModObject( args, whispIndex ) {
+    const modsObj = { main: { }, behaviors: [] };
+    let behav = { actions: [], conditions: [] };
+    args.forEach( arg => {
+        const [ type, segs ] = arg.split( '.' );
+        if( mods.hasOwnProperty( type ) ) {
+            Object.assign( ( modsObj.main ), mods[ type ].default.main );
+            behav = { actions: [], conditions: [] };
+            if( mods[ type ].default.hasOwnProperty( 'behaviors' ) && Array.isArray( mods[ type ].default.behaviors ) ) {
+                mods[ type ].default.behaviors.forEach ( _b => {
+                    const newC = []; const newA = [];
+                    if( _b.hasOwnProperty( 'conditions' ) && Array.isArray( _b.conditions ) )
+                        _b.conditions.forEach( _c => { newC.push( ( new Condition( _c, whispIndex ) ) ); } );
+                    if( _b.hasOwnProperty( 'actions' ) && Array.isArray( _b.actions ) )
+                        _b.actions.forEach( _a => { newA.push( ( new Action( _a, whispIndex ) ) ); } );
+                        modsObj.behaviors.push( { actions: newA, conditions: newC } );
+                } ); 
+            }
+            if( Array.isArray( segs ) && segs.length > 0 ) {
+                segs.forEach( seg => {
+                    const s = seg.toLowerCase();
+                    if( mods[ type ].hasOwnProperty( s ) ) {
+                        Object.assign( modsObj.main, ( mods[ type ][ s ].main ) );
+                        if( mods[ type ][s].hasOwnProperty( 'behavior' ) ) {
+                            if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) ) {
+                                mods[ type ][s].behavior.actions.forEach( _a => {
+                                    behav.actions.push( ( new Action( _a, whispIndex ) ) );
+                                } );
+                            }
+                            if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) ) {
+                                mods[ type ][s].behavior.conditions.forEach( _c => {
+                                    behav.conditions.push( ( new Condition( _c, whispIndex ) ) );
+                                } );
+                            }
+                        } else if( mods[ type ][s].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
+                            const acts = mods[ type ][s].bmod.hasOwnProperty( 'actions' );
+                            const conds = mods[ type ][s].bmod.hasOwnProperty( 'conditions' );
+                            modsObj.behaviors.forEach( ( b, bIndex ) => {
+                                if( acts && b.actions.length > 0 ) {
+                                    b.actions.forEach( ( act, aIndex ) => {
+                                        Object.assign( 
+                                            modsObj.behaviors[ bIndex ].actions[ aIndex ],
+                                            mods[ type ][s].bmod.actions 
+                                        );
+                                    } );
+                                }
+                                if( conds && b.conditions.length > 0 ) {
+                                    b.conditions.forEach( ( cond, cIndex ) => {
+                                        Object.assign( 
+                                            modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
+                                            mods[ type ][s].bmod.conditions 
+                                        );
+                                    } );
+                                }
+                            } ); 
+                        }
+                        if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) )
+                            behav.actions.push( mods[ type ][ s ].behavior.actions );
+                        if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) )
+                            behav.actions.push( mods[ type ][ s ].behavior.conditions );
+                    } else if( mods.hasOwnProperty( s ) && mods[ s ].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
+                        const acts = mods[ s ].bmod.hasOwnProperty( 'actions' );
+                        const conds = mods[ s ].bmod.hasOwnProperty( 'conditions' );
+                        modsObj.behaviors.forEach( ( b, bIndex ) => {
+                            if( acts && b.actions.length > 0 ) {
+                                b.actions.forEach( ( act, aIndex ) => {
+                                    Object.assign( 
+                                        modsObj.behaviors[ bIndex ].actions[ aIndex ],
+                                        mods[ s ].bmod.actions 
+                                    );
+                                } );
+                            }
+                            if( conds && b.conditions.length > 0 ) {
+                                b.conditions.forEach( ( cond, cIndex ) => {
+                                    Object.assign( 
+                                        modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
+                                        mods[ s ].bmod.conditions 
+                                    );
+                                } );
+                            }
+                        } );
+                    }
+                } );
+            }
+            if( behav.hasOwnProperty( 'actions' ) && Array.isArray( behav.actions ) && behav.actions.length > 0 )
+                modsObj.behaviors.push( behav );
+        }
+    } );
+    if( modsObj.main.hasOwnProperty( 'lightColor' ) && typeof modsObj.main.lightColor === 'string' ) {
+        modsObj.main.lightColor = getColor( modsObj.main.lightColor )
+    }
+    //if( modsObj.main.hasOwnProperty(  ) )
+    if( modsObj.main.hasOwnProperty( 'lightScale' ) ) 
+        modsObj.main.lightScale.current = ( getScaleValue( [ modsObj.main.lightScale.min, modsObj.main.lightScale.max ] ) ).current;
+    if( modsObj.main.hasOwnProperty( 'whispScale' ) ) 
+        modsObj.main.whispScale.current = ( getScaleValue( [ modsObj.main.lightScale.min, modsObj.main.lightScale.max ] ) ).current;
+    return modsObj;
 }
 
 class Whisp {
     constructor( whispString, i ) {
         const data = whispString.split( ' ', 20 );
         this.behaviors = [];
-        
-        const spawnData = []
+        const spawnData = [];
         data.forEach( phrase => { 
             const [ phraseType, phraseName, ...args ] = phrase.split( '-', 20 );
             const propType = getPropType( phraseType );
             switch( phraseType.toUpperCase() ) {          
-                case 'T': // TYPE - add default props for specified whisp type
-                    Object.assign( this, whispData.whispTypeProps[ phraseName ] ); 
-                    this[ propType ] = phraseName;
-                    break;
                 case 'B': // BEHAVIOR - add to behavior ( actions[] & conditions[] ) to behaviors[]
-                    (this.behaviors).push( getBehaviorValue( [ phraseName, ...args ], i ) ); 
+                    this.behaviors.push( getBehaviorValue( [ phraseName, ...args ], i ) ); 
                     break;
                 case 'WS': case 'LS': // WHISP SIZE or LIGHT SIZE - set size (x32px) of whisp or light
-                    this[ propType ] = getScaleValue( [ phraseName, ...args ] );
+                    this[ propType ] = getScaleValue( fixArgs( [ phraseName, ...args ] ) );
                     break;
                 case 'WC': case 'LC': // WHISP COLOR or LIGHT COLOR - set color from colorHues
                     this[ propType ] = ( colorHues.hasOwnProperty( phraseName.toLowerCase() ) 
-                                ? colorHues[ phraseName.toLowerCase() ] 
-                                : colorHues[ 'white' ] );
+                                ? getColor( phraseName.toLowerCase() ) 
+                                : getColor( 'white' ) );
                     break;
                 case '@': // SPAWN LOCATION - set which sides/ coordinate ranges where whisp can spawn
                     spawnData.push( getSpawnLocValue( [ phraseName, ...args ] ) ); 
+                    break;
+                case '&': case 'T':
+                case 'M' : case 'MOD': case 'MODS': // MODS - simpler way to change whisp settings
+                    const modObject = getModObject( [ phraseName, ...args ], i );
+                    Object.assign( this, modObject.main );
+                    if( modObject.hasOwnProperty( 'behaviors' ) && Array.isArray( modObject.behaviors ) ) {
+                        modObject.behaviors.forEach( _b => {
+                            this.behaviors.push( _b );
+                        } );
+                    }
                     break;
                 default: console.log(`Whisp property '${ phraseType }' not recognized in whisp[${ i }].`);
             }
@@ -351,6 +534,7 @@ class Whisp {
         this.id = nextWhispId();
     }
     
+    // ------ CALCULATION METHODS -------------------------------------------
     getNearestWhispIndex() {
         let nearest = 9999999;
         let nearestIndex = -1;
@@ -390,10 +574,6 @@ class Whisp {
             case 'nearest': return this.getNearestWhispVector();
         }
     }
-    moveStep() {
-        this.coords.x += this.xspeed * timeObj.delta;
-        this.coords.y += this.yspeed * timeObj.delta;
-    }
     getDirection() { return pointDirection( 0, 0, -this.xspeed, -this.yspeed ); }
     getSpeed() { return pointDistance( 0, 0, this.xspeed, this.yspeed ); }
     getVector() { 
@@ -404,6 +584,12 @@ class Whisp {
     }
     getSpeedXY( [ _speed, _dir ] ) {
         return [ _speed * Math.cos( _dir ), -_speed * Math.sin( _dir ) ];
+    }
+
+    // ------ MOVEMENT METHODS -----------------------------------------------
+    moveStep() {
+        this.coords.x += this.xspeed * timeObj.delta;
+        this.coords.y += this.yspeed * timeObj.delta;
     }
     turn( turnAngle ) {
         const adjustedAngle = turnAngle * timeObj.delta;
@@ -438,6 +624,7 @@ class Whisp {
         [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed + dSpeed, _dir ] );
     }
 
+    // ------ BEHAVIOR METHODS -------------------------------------------------
     follow( [ target, maxSpeed, acceleration, turnSpeed ] ) {
         const [ _x, _y ] = this.getTargetCoords( target );
         this.turnTowardPoint( _x, _y, turnSpeed );
@@ -448,13 +635,15 @@ class Whisp {
         this.turnAwayFromPoint( _x, _y, turnSpeed );
         this.speedUp( acceleration, maxSpeed );
     }
+
+    // ------ MAIN METHODS ----------------------------------------------------
     executeBehaviors() {
-        this.behaviors.forEach( behavior => {
-            const { actions, conditions } = behavior;
+        this.behaviors.forEach( beh => {
             let conditionsMet = true;
-            conditions.forEach( _cond => { if( conditionsMet ) conditionsMet = _cond.evaluate(); } );
+            if( beh.hasOwnProperty( 'conditions' ) && Array.isArray( beh.conditions ) )
+                beh.conditions.forEach( _cond => { if( conditionsMet ) conditionsMet = _cond.evaluate(); } );
             if( conditionsMet ) {
-                actions.forEach( _action => { _action.perform() } );
+                beh.actions.forEach( _action => { _action.perform() } );
             }
         } );
     }
@@ -486,14 +675,27 @@ class Whisp {
 }
 
 const whispList = [ 
-    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1000 LS-4 LC-yellow WS-2 WC-yellow @-tblr-25-75", 0 )),
-    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-2 LC-cyan WS-2 WC-cyan @-rlbt-40-60", 1 )),
-    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-5 LC-white WS-2 WC-white @-lr-0-0 @-tb-0-100", 2 )),
-    (new Whisp("T-whisp B-follow.cursor.30.15.50-if.cursor.within.1900 LS-2 LC-fuschia WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 3 )) 
+    (new Whisp("M-whisp @-tblr-25-75", 0 )),
+    (new Whisp("B-follow.cursor.150.55.50-if.cursor.within.19900 LS-3 LC-blue WS-2 WC-cyan @-rlbt-40-60", 1 )),
+    (new Whisp("B-follow.cursor.165.65.80-if.cursor.within.100.19900 LS-2 LC-red WS-2 WC-white @-lr-0-0 @-tb-0-100", 2 )),
+    (new Whisp("B-follow.cursor.200.70.110-if.cursor.within.19900 LS-1 LC-cyan WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 3 )),
+    (new Whisp("B-follow.cursor.100.60.45-if.cursor.within.19900 LS-4 LC-orange WS-2 WC-yellow @-tblr-25-75", 4 )),
+    // (new Whisp("T-whisp B-follow.cursor.135.65.60-if.cursor.within.1900 LS-3 LC-fuschia WS-2 WC-cyan @-rlbt-40-60", 5 )),
+    // (new Whisp("T-whisp B-follow.cursor.175.70.110-if.cursor.within.1900 LS-2 LC-indigo WS-2 WC-white @-lr-0-0 @-tb-0-100", 6 )),
+    // (new Whisp("T-whisp B-follow.cursor.190.75.135-if.cursor.within.1900 LS-1 LC-yellow WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 7 )),
+    // (new Whisp("T-whisp B-follow.cursor.126.50.35-if.cursor.within.1900 LS-4 LC-green WS-2 WC-yellow @-tblr-25-75", 8 )),
+    // (new Whisp("T-whisp B-follow.cursor.156.55.50-if.cursor.within.1900 LS-3 LC-blue WS-2 WC-cyan @-rlbt-40-60", 9 )),
+    // (new Whisp("T-whisp B-follow.cursor.171.65.80-if.cursor.within.1900 LS-2 LC-red WS-2 WC-white @-lr-0-0 @-tb-0-100", 10 )),
+    // (new Whisp("T-whisp B-follow.cursor.206.70.110-if.cursor.within.1900 LS-1 LC-cyan WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 11 )),
+    // (new Whisp("T-whisp B-follow.cursor.116.60.45-if.cursor.within.1900 LS-4 LC-orange WS-2 WC-yellow @-tblr-25-75", 12 )),
+    // (new Whisp("T-whisp B-follow.cursor.141.65.60-if.cursor.within.1900 LS-3 LC-fuschia WS-2 WC-cyan @-rlbt-40-60", 13 )),
+    // (new Whisp("T-whisp B-follow.cursor.181.70.110-if.cursor.within.1900 LS-2 LC-indigo WS-2 WC-white @-lr-0-0 @-tb-0-100", 14 )),
+    // (new Whisp("T-whisp B-follow.cursor.196.75.135-if.cursor.within.1900 LS-1 LC-yellow WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 15 )), 
 ];
 whispList.forEach( whispy => { 
-    whispy.x = 40 + Math.random() * ( getWidth() - 80 ); 
-    whispy.y = 40 + Math.random() * ( getHeight() - 80 ); 
+    console.log(whispy)
+    //whispy.x = 40 + Math.random() * ( getWidth() - 80 ); 
+    //whispy.y = 40 + Math.random() * ( getHeight() - 80 ); 
 } );
 
 function draw() {
@@ -514,9 +716,8 @@ function draw() {
     whispList.forEach( whisp => {
         whisp.step();
     } );
-
     ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    ctx.fillStyle = `rgba(0, 0, 0, ${ shadowAlpha } )`;
     ctx.fillRect( 0, 0, w, h );
 
     prevMouseCoords = [ mouseObj.x, mouseObj.y ];
