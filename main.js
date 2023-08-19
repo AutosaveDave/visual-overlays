@@ -1,6 +1,8 @@
 const canvas = document.createElement("canvas");
 canvas.id="whisps-canvas";
 canvas.style.position = "fixed";
+canvas.style.top = 0;
+canvas.style.left = 0;
 canvas.style.mixBlendMode= 'multiply';
 canvas.style.height = "100%";
 canvas.style.width = "100%";
@@ -367,7 +369,6 @@ const rndActionShifts = { maxSpeed: 30, turnSpeed: degToRad( 15 ), acceleration:
 
 class Action {
     constructor( _args, _i ) { 
-        
         if( Array.isArray( _args ) ) { 
             Object.assign( this, getActionArgsObj( _args, _i ) );
         } else if( typeof _args === 'object' ) {
@@ -695,7 +696,7 @@ function readWhispDoc( wDoc ) {
     let count = 0;
     let countString = '';
     let wString = '';
-    for( a = 0 ; a < doc.length ; a += 1 ) {
+    for( let a = 0 ; a < doc.length ; a += 1 ) {
         if( doc.charAt( a ) === '(' ) {
             count = 0;
             _char = 1;
@@ -705,26 +706,26 @@ function readWhispDoc( wDoc ) {
                 _char += 1;
             }   // leaves _char equal to the location of ')' ( or _char = doc.length )
             if( a > 1 && multiplierChars.includes( doc.charAt( a - 1 ) ) && countChars.includes( doc.charAt( a - 2 ) ) ) {
-                for( b = 2 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 5 ; b += 1 ) {
+                for( let b = 2 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 5 ; b += 1 ) {
                     countString = `${ doc.charAt( a - b ) }${ countString }`;
                 }
             } else if( a + _char + 2 < doc.length && multiplierChars.includes( doc.charAt( a + _char + 1 ) ) && countChars.includes( doc.charAt( a + _char + 2 ) ) ) {
-                for( b = 2 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 5 ; b += 1 ) {
+                for( let b = 2 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 5 ; b += 1 ) {
                     countString = `${ countString }${ doc.charAt( a + _char + b ) }`;
                 }
             } else if( a > 0 && countChars.includes( doc.charAt( a - 1 ) ) ) {
-                for( b = 1 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 4 ; b += 1 ) {
+                for( let b = 1 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 4 ; b += 1 ) {
                     countString = `${ doc.charAt( a - b ) }${ countString }`;
                 }
             } else if( a + _char + 1 < doc.length && countChars.includes( doc.charAt( a + _char + 1 ) ) ) {
-                for( b = 1 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 4 ; b += 1 ) {
+                for( let b = 1 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 4 ; b += 1 ) {
                     countString = `${ countString }${ doc.charAt( a + _char + b ) }`;
                 }
             } else {
                 countString = '1';
             }
             wString = wString.trim();
-            for( c = 0 ; c < parseInt( countString ) ; c += 1 ) {
+            for( let c = 0 ; c < parseInt( countString ) ; c += 1 ) {
                 list.push( ( new Whisp( wString, list.length ) ) );
             }
             a += _char + 1;     // jump forward to after ')'
