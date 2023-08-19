@@ -9,6 +9,8 @@ canvas.style.zIndex = 1;
 document.body.appendChild(canvas);
 const canvasEl = document.getElementById("whisps-canvas");
 
+const whispDoc = "(M-whisp)x1 2( M-whisp ) (M-whisp )4 8x(whisp) ";
+
 const getWidth = () => canvasEl.clientWidth;
 const getHeight = () => canvasEl.clientHeight;
 const handleResize = () => { canvasEl.height = getHeight(); canvasEl.width = getWidth(); };
@@ -523,7 +525,15 @@ class Whisp {
                         } );
                     }
                     break;
-                default: console.log(`Whisp property '${ phraseType }' not recognized in whisp[${ i }].`);
+                default:
+                    const modObject2 = getModObject( [ phraseType, phraseName, ...args ], i );
+                    Object.assign( this, modObject2.main );
+                    if( modObject2.hasOwnProperty( 'behaviors' ) && Array.isArray( modObject2.behaviors ) ) {
+                        modObject2.behaviors.forEach( _b => {
+                            this.behaviors.push( _b );
+                        } );
+                    }
+                    break;
             }
         } );
         this.spawnLoc = spawnData;
@@ -674,29 +684,57 @@ class Whisp {
     }
 }
 
-const whispList = [ 
-    (new Whisp("M-whisp @-tblr-25-75", 0 )),
-    (new Whisp("B-follow.cursor.150.55.50-if.cursor.within.19900 LS-3 LC-blue WS-2 WC-cyan @-rlbt-40-60", 1 )),
-    (new Whisp("B-follow.cursor.165.65.80-if.cursor.within.100.19900 LS-2 LC-red WS-2 WC-white @-lr-0-0 @-tb-0-100", 2 )),
-    (new Whisp("B-follow.cursor.200.70.110-if.cursor.within.19900 LS-1 LC-cyan WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 3 )),
-    (new Whisp("B-follow.cursor.100.60.45-if.cursor.within.19900 LS-4 LC-orange WS-2 WC-yellow @-tblr-25-75", 4 )),
-    // (new Whisp("T-whisp B-follow.cursor.135.65.60-if.cursor.within.1900 LS-3 LC-fuschia WS-2 WC-cyan @-rlbt-40-60", 5 )),
-    // (new Whisp("T-whisp B-follow.cursor.175.70.110-if.cursor.within.1900 LS-2 LC-indigo WS-2 WC-white @-lr-0-0 @-tb-0-100", 6 )),
-    // (new Whisp("T-whisp B-follow.cursor.190.75.135-if.cursor.within.1900 LS-1 LC-yellow WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 7 )),
-    // (new Whisp("T-whisp B-follow.cursor.126.50.35-if.cursor.within.1900 LS-4 LC-green WS-2 WC-yellow @-tblr-25-75", 8 )),
-    // (new Whisp("T-whisp B-follow.cursor.156.55.50-if.cursor.within.1900 LS-3 LC-blue WS-2 WC-cyan @-rlbt-40-60", 9 )),
-    // (new Whisp("T-whisp B-follow.cursor.171.65.80-if.cursor.within.1900 LS-2 LC-red WS-2 WC-white @-lr-0-0 @-tb-0-100", 10 )),
-    // (new Whisp("T-whisp B-follow.cursor.206.70.110-if.cursor.within.1900 LS-1 LC-cyan WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 11 )),
-    // (new Whisp("T-whisp B-follow.cursor.116.60.45-if.cursor.within.1900 LS-4 LC-orange WS-2 WC-yellow @-tblr-25-75", 12 )),
-    // (new Whisp("T-whisp B-follow.cursor.141.65.60-if.cursor.within.1900 LS-3 LC-fuschia WS-2 WC-cyan @-rlbt-40-60", 13 )),
-    // (new Whisp("T-whisp B-follow.cursor.181.70.110-if.cursor.within.1900 LS-2 LC-indigo WS-2 WC-white @-lr-0-0 @-tb-0-100", 14 )),
-    // (new Whisp("T-whisp B-follow.cursor.196.75.135-if.cursor.within.1900 LS-1 LC-yellow WS-2 WC-fuschia @-tb-0-0 @-rl-0-100", 15 )), 
-];
-whispList.forEach( whispy => { 
-    console.log(whispy)
-    //whispy.x = 40 + Math.random() * ( getWidth() - 80 ); 
-    //whispy.y = 40 + Math.random() * ( getHeight() - 80 ); 
-} );
+function readWhispDoc( wDoc ) {
+    let doc = wDoc;
+    const countChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ];
+    const multiplierChars = [ 'x', '*', 'X' ];
+    const list = [];
+    let [ delStart, delEnd ] = [ 0, 0 ];
+    let [ wStart, wEnd ] = [ 0, 0 ];
+    let _char = 1;
+    let count = 0;
+    let countString = '';
+    let wString = '';
+    for( a = 0 ; a < doc.length ; a += 1 ) {
+        if( doc.charAt( a ) === '(' ) {
+            count = 0;
+            _char = 1;
+            countString = '';
+            while( !( doc.charAt( a + _char ) === ')' ) && ( a + _char ) < doc.length ) {
+                wString = `${ wString }${ doc.charAt( a + _char ) }`;   // add character to wString
+                _char += 1;
+            }   // leaves _char equal to the location of ')' ( or _char = doc.length )
+            if( a > 1 && multiplierChars.includes( doc.charAt( a - 1 ) ) && countChars.includes( doc.charAt( a - 2 ) ) ) {
+                for( b = 2 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 5 ; b += 1 ) {
+                    countString = `${ doc.charAt( a - b ) }${ countString }`;
+                }
+            } else if( a + _char + 2 < doc.length && multiplierChars.includes( doc.charAt( a + _char + 1 ) ) && countChars.includes( doc.charAt( a + _char + 2 ) ) ) {
+                for( b = 2 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 5 ; b += 1 ) {
+                    countString = `${ countString }${ doc.charAt( a + _char + b ) }`;
+                }
+            } else if( a > 0 && countChars.includes( doc.charAt( a - 1 ) ) ) {
+                for( b = 1 ; a - b >= 0 && countChars.includes( doc.charAt( a - b ) ) && b < 4 ; b += 1 ) {
+                    countString = `${ doc.charAt( a - b ) }${ countString }`;
+                }
+            } else if( a + _char + 1 < doc.length && countChars.includes( doc.charAt( a + _char + 1 ) ) ) {
+                for( b = 1 ; a + _char + b < doc.length && countChars.includes( doc.charAt( a + _char + b ) ) && b < 4 ; b += 1 ) {
+                    countString = `${ countString }${ doc.charAt( a + _char + b ) }`;
+                }
+            } else {
+                countString = '1';
+            }
+            wString = wString.trim();
+            for( c = 0 ; c < parseInt( countString ) ; c += 1 ) {
+                list.push( ( new Whisp( wString, list.length ) ) );
+            }
+            a += _char + 1;     // jump forward to after ')'
+        }
+    }
+    return list;
+}
+
+
+const whispList = readWhispDoc( whispDoc );
 
 function draw() {
     const w = getWidth();
