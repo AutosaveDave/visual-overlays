@@ -1,5 +1,5 @@
-const canvas = document.createElement("canvas");
-canvas.id="whisps-canvas";
+const canvas = window.document.createElement("canvas");
+canvas.id = "whisps-canvas";
 canvas.style.position = "fixed";
 canvas.style.top = 0;
 canvas.style.left = 0;
@@ -7,9 +7,13 @@ canvas.style.mixBlendMode= 'multiply';
 canvas.style.height = "100%";
 canvas.style.width = "100%";
 canvas.style.zIndex = 1;
+canvas.style.pointerEvents = 'none';
 
-document.body.appendChild(canvas);
-const canvasEl = document.getElementById("whisps-canvas");
+const whispSurfaces = window.document.getElementsByClassName("whisps");
+console.log(whispSurfaces[0].getRootNode());
+whispSurfaces[0].appendChild(canvas);
+
+const canvasEl = window.document.getElementById("whisps-canvas");
 
 const whispDoc = "(M-whisp)x1 2( M-whisp ) (M-whisp )4 8x(whisp) ";
 
@@ -27,7 +31,6 @@ const timeObj = {
 const mouseObj = { x: getWidth() / 2, y: getHeight() / 2, mousedown: false, mouseup: false, speed: 0, direction: 0 };
 const handleMouseMove = ( e ) => { 
     const time = ( new Date() ).getTime() / 1000;
-    const delta = time - mouseObj.timeLastMoved;
     mouseObj.x = e.clientX; 
     mouseObj.y = e.clientY; 
     mouseObj.timeLastMoved = time;
@@ -40,15 +43,6 @@ const spawnMargin = 24; // how far off-screen to spawn whisps
 let nextWhispIdVar = 0;
 const nextWhispId = () => nextWhispIdVar++;
 let prevMouseCoords = [ mouseObj.x, mouseObj.y ];
-
-function init() {
-    handleResize();
-    window.requestAnimationFrame(draw);
-    window.addEventListener( 'resize', handleResize );
-    window.addEventListener( 'mousemove', handleMouseMove );
-    window.addEventListener( 'mouseup', handleMouseUp );
-    window.addEventListener( 'mousedown', handleMouseDown );
-}
 
 const colorHues = { red:0, orange:30, yellow:60, green:100, sea:150, cyan:180, 
     sky:200, blue:240, indigo:260, purple:280, pink:300, fuschia:335, white:-1 };
@@ -763,4 +757,13 @@ function draw() {
     window.requestAnimationFrame(draw);
 }
 
-init();
+function init() {
+    handleResize();
+    window.requestAnimationFrame(draw);
+    window.addEventListener( 'resize', handleResize, );
+    window.onmousemove = handleMouseMove;
+    window.onmouseup = handleMouseUp;
+    window.onmousedown = handleMouseDown;
+}
+
+whispSurfaces[0].onload = init;
