@@ -108,12 +108,13 @@ const whispData = {
 }
 
 const degToRad = deg => 2 * Math.PI * deg / 360; 
-const modVals = {     // arrays go
+const modVals = {       // increase from [0] (zero) to [10] (max)
     maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 900, 1000 ],
     acceleration: [ 0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 ],
     turnSpeed: [ 0, degToRad( 40 ), degToRad( 80 ), degToRad( 120 ), degToRad( 160 ), degToRad( 200 ), degToRad( 240 ), degToRad( 280 ), degToRad( 320 ), degToRad( 360 ), degToRad( 400 ) ],
 
 }
+const moveTypes = [ 'swim', 'drift', 'glide', 'crawl' ];    // movement types - not used yet
 
 const mods = {
     whisp: {
@@ -126,18 +127,27 @@ const mods = {
             behaviors: [ {
                 actions: [ { 
                     act: 'follow', target: 'cursor', 
-                    maxSpeed: modVals.maxSpeed[4], 
-                    acceleration: modVals.acceleration[2],
+                    maxSpeed: modVals.maxSpeed[5], 
+                    acceleration: modVals.acceleration[5],
                     turnSpeed: modVals.turnSpeed[4]
                 } ]
             } ],
         },
+        fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[10], } } },
+        veryfast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[9], } } },
+        faster: { bmod: { actions: {maxSpeed: modVals.maxSpeed[8], acceleration: modVals.acceleration[8], } } },
+        fast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[7], acceleration: modVals.acceleration[7], } } },
+        fastish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[6], acceleration: modVals.acceleration[6], } } },
+        slowish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[4], acceleration: modVals.acceleration[4], } } },
+        slow: { bmod: { actions: {maxSpeed: modVals.maxSpeed[3], acceleration: modVals.acceleration[3], } } },
+        slower: { bmod: { actions: {maxSpeed: modVals.maxSpeed[2], acceleration: modVals.acceleration[2], } } },
+        slowest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[1], acceleration: modVals.acceleration[1], } } },
     },
 
     follow: {
         default: { main: {}, behaviors: [] }, // gets added to whisp regardless of arguments
     },
-    fast: { bmod: { actions: {}, conditions: {} } }
+    
 };
 
 function getPropType( typeCode ) {
@@ -740,6 +750,7 @@ function readWhispDoc( wDoc ) {
 
 
 const whispList = readWhispDoc( whispDoc );
+console.log(whispList)
 
 function draw() {
     const w = getWidth();
