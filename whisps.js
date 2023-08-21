@@ -15,7 +15,15 @@ whispSurfaces[0].appendChild(canvas);
 
 const canvasEl = window.document.getElementById("whisps-canvas");
 
-const whispDoc = "(M-whisp)x1 2( M-whisp ) (M-whisp )4 8x(whisp) ";
+const getWhispDoc = () => {
+    console.log(whispSurfaces[0].dataset.whisps)
+    if( typeof whispSurfaces[0].dataset.whisps === 'string' ) {
+        return whispSurfaces[0].dataset.whisps;
+    }
+    return "10x(whisp)"
+}
+
+const whispDoc = getWhispDoc();
 
 const getWidth = () => canvasEl.clientWidth;
 const getHeight = () => canvasEl.clientHeight;
@@ -73,7 +81,7 @@ const getColor = color => {
     if( typeof color === 'string' ){
         if( colorHues.hasOwnProperty( color ) )
             return rndColorShift( colorHues[ color ], 10 );
-        else if( colorSets.hasOwnProperty( color ) )
+        if( colorSets.hasOwnProperty( color ) )
             return rndColorShift( rndChoose( colorSets[ color ] ), 10 );
     }
     if( typeof color === 'number' ) {
@@ -391,91 +399,95 @@ class Action {
 function getModObject( args, whispIndex ) {
     const modsObj = { main: { }, behaviors: [] };
     let behav = { actions: [], conditions: [] };
-    args.forEach( arg => {
-        const [ type, segs ] = arg.split( '.' );
-        if( mods.hasOwnProperty( type ) ) {
-            Object.assign( ( modsObj.main ), mods[ type ].default.main );
-            behav = { actions: [], conditions: [] };
-            if( mods[ type ].default.hasOwnProperty( 'behaviors' ) && Array.isArray( mods[ type ].default.behaviors ) ) {
-                mods[ type ].default.behaviors.forEach ( _b => {
-                    const newC = []; const newA = [];
-                    if( _b.hasOwnProperty( 'conditions' ) && Array.isArray( _b.conditions ) )
-                        _b.conditions.forEach( _c => { newC.push( ( new Condition( _c, whispIndex ) ) ); } );
-                    if( _b.hasOwnProperty( 'actions' ) && Array.isArray( _b.actions ) )
-                        _b.actions.forEach( _a => { newA.push( ( new Action( _a, whispIndex ) ) ); } );
-                        modsObj.behaviors.push( { actions: newA, conditions: newC } );
-                } ); 
-            }
-            if( Array.isArray( segs ) && segs.length > 0 ) {
-                segs.forEach( seg => {
-                    const s = seg.toLowerCase();
-                    if( mods[ type ].hasOwnProperty( s ) ) {
-                        Object.assign( modsObj.main, ( mods[ type ][ s ].main ) );
-                        if( mods[ type ][s].hasOwnProperty( 'behavior' ) ) {
-                            if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) ) {
-                                mods[ type ][s].behavior.actions.forEach( _a => {
-                                    behav.actions.push( ( new Action( _a, whispIndex ) ) );
-                                } );
-                            }
-                            if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) ) {
-                                mods[ type ][s].behavior.conditions.forEach( _c => {
-                                    behav.conditions.push( ( new Condition( _c, whispIndex ) ) );
-                                } );
-                            }
-                        } else if( mods[ type ][s].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
-                            const acts = mods[ type ][s].bmod.hasOwnProperty( 'actions' );
-                            const conds = mods[ type ][s].bmod.hasOwnProperty( 'conditions' );
-                            modsObj.behaviors.forEach( ( b, bIndex ) => {
-                                if( acts && b.actions.length > 0 ) {
-                                    b.actions.forEach( ( act, aIndex ) => {
-                                        Object.assign( 
-                                            modsObj.behaviors[ bIndex ].actions[ aIndex ],
-                                            mods[ type ][s].bmod.actions 
-                                        );
-                                    } );
+    if( Array.isArray( args ) && ( mods.hasOwnProperty( args[0] ) ) ) {
+        args.forEach( arg => {
+            if( typeof arg === 'string' ) {
+                const [ type, segs ] = arg.split( '.' );
+                if( mods.hasOwnProperty( type ) ) {
+                    Object.assign( ( modsObj.main ), mods[ type ].default.main );
+                    behav = { actions: [], conditions: [] };
+                    if( mods[ type ].default.hasOwnProperty( 'behaviors' ) && Array.isArray( mods[ type ].default.behaviors ) ) {
+                        mods[ type ].default.behaviors.forEach ( _b => {
+                            const newC = []; const newA = [];
+                            if( _b.hasOwnProperty( 'conditions' ) && Array.isArray( _b.conditions ) )
+                                _b.conditions.forEach( _c => { newC.push( ( new Condition( _c, whispIndex ) ) ); } );
+                            if( _b.hasOwnProperty( 'actions' ) && Array.isArray( _b.actions ) )
+                                _b.actions.forEach( _a => { newA.push( ( new Action( _a, whispIndex ) ) ); } );
+                                modsObj.behaviors.push( { actions: newA, conditions: newC } );
+                        } ); 
+                    }
+                    if( Array.isArray( segs ) && segs.length > 0 ) {
+                        segs.forEach( seg => {
+                            const s = seg.toLowerCase();
+                            if( mods[ type ].hasOwnProperty( s ) ) {
+                                Object.assign( modsObj.main, ( mods[ type ][ s ].main ) );
+                                if( mods[ type ][s].hasOwnProperty( 'behavior' ) ) {
+                                    if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) ) {
+                                        mods[ type ][s].behavior.actions.forEach( _a => {
+                                            behav.actions.push( ( new Action( _a, whispIndex ) ) );
+                                        } );
+                                    }
+                                    if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) ) {
+                                        mods[ type ][s].behavior.conditions.forEach( _c => {
+                                            behav.conditions.push( ( new Condition( _c, whispIndex ) ) );
+                                        } );
+                                    }
+                                } else if( mods[ type ][s].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
+                                    const acts = mods[ type ][s].bmod.hasOwnProperty( 'actions' );
+                                    const conds = mods[ type ][s].bmod.hasOwnProperty( 'conditions' );
+                                    modsObj.behaviors.forEach( ( b, bIndex ) => {
+                                        if( acts && b.actions.length > 0 ) {
+                                            b.actions.forEach( ( act, aIndex ) => {
+                                                Object.assign( 
+                                                    modsObj.behaviors[ bIndex ].actions[ aIndex ],
+                                                    mods[ type ][s].bmod.actions 
+                                                );
+                                            } );
+                                        }
+                                        if( conds && b.conditions.length > 0 ) {
+                                            b.conditions.forEach( ( cond, cIndex ) => {
+                                                Object.assign( 
+                                                    modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
+                                                    mods[ type ][s].bmod.conditions 
+                                                );
+                                            } );
+                                        }
+                                    } ); 
                                 }
-                                if( conds && b.conditions.length > 0 ) {
-                                    b.conditions.forEach( ( cond, cIndex ) => {
-                                        Object.assign( 
-                                            modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
-                                            mods[ type ][s].bmod.conditions 
-                                        );
-                                    } );
-                                }
-                            } ); 
-                        }
-                        if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) )
-                            behav.actions.push( mods[ type ][ s ].behavior.actions );
-                        if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) )
-                            behav.actions.push( mods[ type ][ s ].behavior.conditions );
-                    } else if( mods.hasOwnProperty( s ) && mods[ s ].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
-                        const acts = mods[ s ].bmod.hasOwnProperty( 'actions' );
-                        const conds = mods[ s ].bmod.hasOwnProperty( 'conditions' );
-                        modsObj.behaviors.forEach( ( b, bIndex ) => {
-                            if( acts && b.actions.length > 0 ) {
-                                b.actions.forEach( ( act, aIndex ) => {
-                                    Object.assign( 
-                                        modsObj.behaviors[ bIndex ].actions[ aIndex ],
-                                        mods[ s ].bmod.actions 
-                                    );
-                                } );
-                            }
-                            if( conds && b.conditions.length > 0 ) {
-                                b.conditions.forEach( ( cond, cIndex ) => {
-                                    Object.assign( 
-                                        modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
-                                        mods[ s ].bmod.conditions 
-                                    );
+                                if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) )
+                                    behav.actions.push( mods[ type ][ s ].behavior.actions );
+                                if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) )
+                                    behav.actions.push( mods[ type ][ s ].behavior.conditions );
+                            } else if( mods.hasOwnProperty( s ) && mods[ s ].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
+                                const acts = mods[ s ].bmod.hasOwnProperty( 'actions' );
+                                const conds = mods[ s ].bmod.hasOwnProperty( 'conditions' );
+                                modsObj.behaviors.forEach( ( b, bIndex ) => {
+                                    if( acts && b.actions.length > 0 ) {
+                                        b.actions.forEach( ( act, aIndex ) => {
+                                            Object.assign( 
+                                                modsObj.behaviors[ bIndex ].actions[ aIndex ],
+                                                mods[ s ].bmod.actions 
+                                            );
+                                        } );
+                                    }
+                                    if( conds && b.conditions.length > 0 ) {
+                                        b.conditions.forEach( ( cond, cIndex ) => {
+                                            Object.assign( 
+                                                modsObj.behaviors[ bIndex ].conditions[ cIndex ], 
+                                                mods[ s ].bmod.conditions 
+                                            );
+                                        } );
+                                    }
                                 } );
                             }
                         } );
                     }
-                } );
+                    if( behav.hasOwnProperty( 'actions' ) && Array.isArray( behav.actions ) && behav.actions.length > 0 )
+                        modsObj.behaviors.push( behav );
+                }
             }
-            if( behav.hasOwnProperty( 'actions' ) && Array.isArray( behav.actions ) && behav.actions.length > 0 )
-                modsObj.behaviors.push( behav );
-        }
-    } );
+        } );
+    }
     if( modsObj.main.hasOwnProperty( 'lightColor' ) && typeof modsObj.main.lightColor === 'string' ) {
         modsObj.main.lightColor = getColor( modsObj.main.lightColor )
     }
@@ -502,10 +514,8 @@ class Whisp {
                 case 'WS': case 'LS': // WHISP SIZE or LIGHT SIZE - set size (x32px) of whisp or light
                     this[ propType ] = getScaleValue( fixArgs( [ phraseName, ...args ] ) );
                     break;
-                case 'WC': case 'LC': // WHISP COLOR or LIGHT COLOR - set color from colorHues
-                    this[ propType ] = ( colorHues.hasOwnProperty( phraseName.toLowerCase() ) 
-                                ? getColor( phraseName.toLowerCase() ) 
-                                : getColor( 'white' ) );
+                case 'WC': case 'LC': // WHISP COLOR or LIGHT COLOR - set color from colorHues/colorSets
+                    this[ propType ] = getColor( phraseName.toLowerCase() );
                     break;
                 case '@': // SPAWN LOCATION - set which sides/ coordinate ranges where whisp can spawn
                     spawnData.push( getSpawnLocValue( [ phraseName, ...args ] ) ); 
