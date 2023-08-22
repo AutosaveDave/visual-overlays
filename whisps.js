@@ -10,13 +10,11 @@ canvas.style.zIndex = 1;
 canvas.style.pointerEvents = 'none';
 
 const whispSurfaces = window.document.getElementsByClassName("whisps");
-console.log(whispSurfaces[0].getRootNode());
 whispSurfaces[0].appendChild(canvas);
 
 const canvasEl = window.document.getElementById("whisps-canvas");
 
 const getWhispDoc = () => {
-    console.log(whispSurfaces[0].dataset.whisps)
     if( typeof whispSurfaces[0].dataset.whisps === 'string' ) {
         return whispSurfaces[0].dataset.whisps;
     }
@@ -122,7 +120,8 @@ const mods = {
             main:{
                 type: 'whisp', 
                 lightColor: 'mystic',
-                lightScale: { min: 2, max: 5 }, whispScale: { min: 1, max: 1 },
+                minLightScale: 2, maxLightScale: 5, 
+                minWhispScale: 1, maxWhispScale: 1,
             },
             behaviors: [ {
                 actions: [ { 
@@ -184,18 +183,20 @@ function getBehaviorValue( args, _i ) {
     const behavior = { actions: actions, conditions: conditions };
     return behavior;
 }
+function rndRange( min, max ) { return Math.floor( 100 * ( min + ( max - min ) * Math.random() ) ) / 100; }
 
 function getScaleValue( args ) {
     args.sort( ( a, b ) => a - b );
+    let result = { minLightScale: 3, maxLightScale: 3, lightScale: 3 };
     if( args.length > 1  && !( args[0] === args[1] ) ) {
-        return { min: args[0], max: args[1], 
-            current : Math.floor( 100 * ( args[0] + ( args[1] - args[0] ) * Math.random() ) ) / 100
-        };
-    } 
-    if( args.length === 1 || args[0] === args[1] ) {
-        return { min: args[0], max: args[0], current : args[0] };
+        result.minLightScale = args[0]; result.maxLightScale = args[1];
+        result.lightScale = rndRange( args[0], args[1] );
     }
-    return { min: 3, max: 3, current: 3 };
+    if( args.length === 1 || args[0] === args[1] ) {
+        result.minLightScale = args[0]; result.maxLightScale = args[0]; 
+        result.lightScale = args[0];
+    }
+    return result;
 }
 function getSideLength( whichSide ) {
     if( whichSide.side === 't' || whichSide.side === 'b' ) { 
@@ -267,7 +268,7 @@ const turnAmount = ( _dir1, _dir2 ) => {
     return best;
 }
 
-const fixArgs = ( [ ...args ] ) => {
+const fixArgs = ( args ) => {
     const newArgs = [];
     args.forEach( arg => {
         const argInt = parseInt( arg );
@@ -407,7 +408,7 @@ class Action {
 }
 
 function getModObject( args, whispIndex ) {
-    const modsObj = { main: { }, behaviors: [] };
+    let modsObj = { main: { }, behaviors: [] };
     let behav = { actions: [], conditions: [] };
     if( Array.isArray( args ) && ( mods.hasOwnProperty( args[0] ) ) ) {
         args.forEach( arg => {
@@ -499,13 +500,11 @@ function getModObject( args, whispIndex ) {
         } );
     }
     if( modsObj.main.hasOwnProperty( 'lightColor' ) && typeof modsObj.main.lightColor === 'string' ) {
-        modsObj.main.lightColor = getColor( modsObj.main.lightColor )
+        modsObj.main.lightColor = getColor( modsObj.main.lightColor );
     }
-    //if( modsObj.main.hasOwnProperty(  ) )
-    if( modsObj.main.hasOwnProperty( 'lightScale' ) ) 
-        modsObj.main.lightScale.current = ( getScaleValue( [ modsObj.main.lightScale.min, modsObj.main.lightScale.max ] ) ).current;
-    if( modsObj.main.hasOwnProperty( 'whispScale' ) ) 
-        modsObj.main.whispScale.current = ( getScaleValue( [ modsObj.main.lightScale.min, modsObj.main.lightScale.max ] ) ).current;
+    if( modsObj.main.hasOwnProperty( 'minLightScale' ) && modsObj.main.hasOwnProperty( 'maxLightScale' ) ) 
+        modsObj.main.lightScale = rndRange( modsObj.main.minLightScale, modsObj.main.maxLightScale );
+
     return modsObj;
 }
 
@@ -522,7 +521,7 @@ class Whisp {
                     this.behaviors.push( getBehaviorValue( [ phraseName, ...args ], i ) ); 
                     break;
                 case 'WS': case 'LS': // WHISP SIZE or LIGHT SIZE - set size (x32px) of whisp or light
-                    this[ propType ] = getScaleValue( fixArgs( [ phraseName, ...args ] ) );
+                    Object.assign( this, getScaleValue( fixArgs( [ phraseName, ...args ] ) ) );
                     break;
                 case 'WC': case 'LC': // WHISP COLOR or LIGHT COLOR - set color from colorHues/colorSets
                     this[ propType ] = getColor( phraseName.toLowerCase() );
@@ -552,8 +551,8 @@ class Whisp {
             }
         } );
         this.spawnLoc = spawnData;
-        const c = newSpawnCoords( spawnData );
-        this.coords = { x: c.x, y: c.y };
+        const sc = newSpawnCoords( spawnData );
+        this.coords = { x: sc.x, y: sc.y };
         this.xspeed = 0;
         this.yspeed = 0;
         this.id = nextWhispId();
@@ -673,7 +672,7 @@ class Whisp {
         } );
     }
     getLightGradient() {
-        const gradient = ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale.current );
+        const gradient = ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale );
         const startColor = (  ( this.lightColor >= 0 )
                             ? `hsla(${ this.lightColor },100%,50%,1)`
                             : `hsla(0,100%,100%,1)` );
@@ -689,7 +688,7 @@ class Whisp {
         ctx.globalCompositeOperation = 'screen';
         ctx.beginPath();
         ctx.fillStyle = this.getLightGradient();
-        ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale.current, 32 * this.lightScale.current, 0, 0, 2 * Math.PI );
+        ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale, 32 * this.lightScale, 0, 0, 2 * Math.PI );
         ctx.fill();
     }
     step() {
@@ -742,7 +741,8 @@ function readWhispDoc( wDoc ) {
             }
             wString = wString.trim();
             for( let c = 0 ; c < parseInt( countString ) ; c += 1 ) {
-                list.push( ( new Whisp( wString, list.length ) ) );
+                const w = new Whisp( wString, list.length );
+                list.push( w );
             }
             a += _char + 1;     // jump forward to after ')'
         } else if( alphaVal === -1 && alphaChars.includes( doc.charAt( a ) ) ) {
@@ -780,9 +780,8 @@ function readWhispDoc( wDoc ) {
     return list;
 }
 
-
 const whispList = readWhispDoc( whispDoc );
-console.log(whispList)
+// console.log(whispList)
 
 function draw() {
     const w = getWidth();
