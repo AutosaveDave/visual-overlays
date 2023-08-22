@@ -30,7 +30,7 @@ const getHeight = () => canvasEl.clientHeight;
 const handleResize = () => { canvasEl.height = getHeight(); canvasEl.width = getWidth(); };
 
 const ctx = canvasEl.getContext("2d");
-const shadowAlpha = 1;
+let shadowAlpha = 1;
 const timeObj = { 
     lastDrawn: ( new Date() ).getTime() / 1000 - ( 1000 / 60 ), 
     current: ( new Date() ).getTime() / 1000, 
@@ -114,7 +114,7 @@ const modVals = {       // increase from [0] (zero) to [10] (max)
     turnSpeed: [ 0, degToRad( 40 ), degToRad( 80 ), degToRad( 120 ), degToRad( 160 ), degToRad( 200 ), degToRad( 240 ), degToRad( 280 ), degToRad( 320 ), degToRad( 360 ), degToRad( 400 ) ],
 
 }
-const moveTypes = [ 'swim', 'drift', 'glide', 'crawl' ];    // movement types - not used yet
+const moveTypes = [ 'swim', 'drift', 'glide', 'crawl', 'weave', 'float' ];    // movement types - not used yet
 
 const mods = {
     whisp: {
@@ -703,9 +703,11 @@ function readWhispDoc( wDoc ) {
     let doc = wDoc;
     const countChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ];
     const multiplierChars = [ 'x', '*', 'X' ];
+    const alphaChars = [ 'A', 'a', '%' ];
+    const zChars = [ 'Z', 'z' ];
     const list = [];
-    let [ delStart, delEnd ] = [ 0, 0 ];
-    let [ wStart, wEnd ] = [ 0, 0 ];
+    let alphaVal = -1;
+    let zVal = false;
     let _char = 1;
     let count = 0;
     let countString = '';
@@ -743,8 +745,38 @@ function readWhispDoc( wDoc ) {
                 list.push( ( new Whisp( wString, list.length ) ) );
             }
             a += _char + 1;     // jump forward to after ')'
+        } else if( alphaVal === -1 && alphaChars.includes( doc.charAt( a ) ) ) {
+            countString = '';
+            if( countChars.includes( doc.charAt( a + 1 ) ) ) {
+                for( let d = 1 ; d < 3 && a + d < doc.length && countChars.includes( doc.charAt( a + d ) ) ; d += 1 ) {
+                    countString = `${ countString }${ doc.charAt( a + d ) }`;
+                }
+            } else if( countChars.includes( doc.charAt( a - 1 ) ) ) {
+                for( let d = 1 ; d < 3 && a - d >= 0 && countChars.includes( doc.charAt( a - d ) ) ; d += 1 ) {
+                    countString = `${ doc.charAt( a - d ) }${ countString }`;
+                }
+            } else {
+                countString = '100';
+            }
+            alphaVal = parseInt( countString ) / 100;
+        } else if( zVal === false && zChars.includes( doc.charAt( a ) ) ) {
+            countString = '';
+            if( [ ...countChars, '-' ].includes( doc.charAt( a + 1 ) ) ) {
+                for( let d = 1 ; d < 4 && a + d < doc.length && [ ...countChars, '-' ].includes( doc.charAt( a + d ) ) ; d += 1 ) {
+                    countString = `${ countString }${ doc.charAt( a + d ) }`;
+                }
+            } else if( [ ...countChars, '-' ].includes( doc.charAt( a - 1 ) ) ) {
+                for( let d = 1 ; d < 4 && a - d >= 0 && [ ...countChars, '-' ].includes( doc.charAt( a - d ) ) ; d += 1 ) {
+                    countString = `${ doc.charAt( a - d ) }${ countString }`;
+                }
+            } else {
+                countString = '1';
+            }
+            zVal = parseInt( countString );
         }
     }
+    shadowAlpha = ( !( alphaVal === -1 ) ? alphaVal : 1 );
+    canvasEl.style.zIndex = ( !( zVal === false ) ? zVal : 1 );
     return list;
 }
 
