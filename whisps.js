@@ -107,10 +107,9 @@ const whispData = {
 
 const degToRad = deg => 2 * Math.PI * deg / 360; 
 const modVals = {       // increase from [0] (zero) to [10] (max)
-    maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 900, 1000 ],
+    maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 ],
     acceleration: [ 0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 ],
     turnSpeed: [ 0, degToRad( 40 ), degToRad( 80 ), degToRad( 120 ), degToRad( 160 ), degToRad( 200 ), degToRad( 240 ), degToRad( 280 ), degToRad( 320 ), degToRad( 360 ), degToRad( 400 ) ],
-
 }
 const moveTypes = [ 'swim', 'drift', 'glide', 'crawl', 'weave', 'float' ];    // movement types - not used yet
 
@@ -132,7 +131,7 @@ const mods = {
                 } ]
             } ],
         },
-        fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[10], } } },
+        fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[10], acceleration: modVals.acceleration[10], } } },
         veryfast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[9], } } },
         faster: { bmod: { actions: {maxSpeed: modVals.maxSpeed[8], acceleration: modVals.acceleration[8], } } },
         fast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[7], acceleration: modVals.acceleration[7], } } },
@@ -141,12 +140,24 @@ const mods = {
         slow: { bmod: { actions: {maxSpeed: modVals.maxSpeed[3], acceleration: modVals.acceleration[3], } } },
         slower: { bmod: { actions: {maxSpeed: modVals.maxSpeed[2], acceleration: modVals.acceleration[2], } } },
         slowest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[1], acceleration: modVals.acceleration[1], } } },
+
+        
     },
 
     follow: {
         default: { main: {}, behaviors: [] }, // gets added to whisp regardless of arguments
     },
-    
+    largest: { default: { main: { minLightScale: 10, maxLightScale: 12, minWhispScale: 1, maxWhispScale: 1, }}},
+    verylarge: { default: { main: { minLightScale: 9, maxLightScale: 11, minWhispScale: 1, maxWhispScale: 1, }}},
+    larger: { default: { main: { minLightScale: 8, maxLightScale: 10, minWhispScale: 1, maxWhispScale: 1, }}},
+    large: { default: { main: { minLightScale: 7, maxLightScale: 9, minWhispScale: 1, maxWhispScale: 1, }}},
+    largeish: { default: { main: { minLightScale: 6, maxLightScale: 8, minWhispScale: 1, maxWhispScale: 1, }}},
+    smallish: { default: { main: { minLightScale: 5, maxLightScale: 7, minWhispScale: 1, maxWhispScale: 1, }}},
+    small: { default: { main: { minLightScale: 4, maxLightScale: 6, minWhispScale: 1, maxWhispScale: 1, }}},
+    smaller: { default: { main: { minLightScale: 3, maxLightScale: 4, minWhispScale: 1, maxWhispScale: 1, }}},
+    small: { default: { main: { minLightScale: 2, maxLightScale: 3, minWhispScale: 1, maxWhispScale: 1, }}},
+    verysmall: { default: { main: { minLightScale: 1, maxLightScale: 2, minWhispScale: 1, maxWhispScale: 1, }}},
+    smallest: { default: { main: {minLightScale: 0.25, maxLightScale: 0.75, minWhispScale: 1, maxWhispScale: 1, }}},
 };
 
 function getPropType( typeCode ) {
@@ -780,8 +791,8 @@ function readWhispDoc( wDoc ) {
     return list;
 }
 
-const whispList = readWhispDoc( whispDoc );
-// console.log(whispList)
+const whispList = readWhispDoc( whispDoc ); 
+console.log(whispList)
 
 function draw() {
     const w = getWidth();
@@ -812,7 +823,7 @@ function draw() {
 function init() {
     handleResize();
     window.requestAnimationFrame(draw);
-    window.addEventListener( 'resize', handleResize, );
+    window.addEventListener( 'resize', handleResize );
     window.onmousemove = handleMouseMove;
     window.onmouseup = handleMouseUp;
     window.onmousedown = handleMouseDown;
