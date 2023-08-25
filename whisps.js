@@ -1,55 +1,4 @@
-const canvas = window.document.createElement("canvas");
-canvas.id = "whisps-canvas";
-canvas.style.position = "fixed";
-canvas.style.top = 0;
-canvas.style.left = 0;
-canvas.style.mixBlendMode= 'multiply';
-canvas.style.height = "100%";
-canvas.style.width = "100%";
-canvas.style.zIndex = 1;
-canvas.style.pointerEvents = 'none';
-
-const whispSurfaces = window.document.getElementsByClassName("whisps");
-whispSurfaces[0].appendChild(canvas);
-
-const canvasEl = window.document.getElementById("whisps-canvas");
-
-const getWhispDoc = () => {
-    if( typeof whispSurfaces[0].dataset.whisps === 'string' ) {
-        return whispSurfaces[0].dataset.whisps;
-    }
-    return "10x(whisp)"
-}
-
-const whispDoc = getWhispDoc();
-
-const getWidth = () => canvasEl.clientWidth;
-const getHeight = () => canvasEl.clientHeight;
-const handleResize = () => { canvasEl.height = getHeight(); canvasEl.width = getWidth(); };
-
-const ctx = canvasEl.getContext("2d");
-let shadowAlpha = 1;
-const timeObj = { 
-    lastDrawn: ( new Date() ).getTime() / 1000 - ( 1000 / 60 ), 
-    current: ( new Date() ).getTime() / 1000, 
-    delta: 1000 / 60
-};
-const mouseObj = { x: getWidth() / 2, y: getHeight() / 2, mousedown: false, mouseup: false, speed: 0, direction: 0 };
-const handleMouseMove = ( e ) => { 
-    const time = ( new Date() ).getTime() / 1000;
-    mouseObj.x = e.clientX; 
-    mouseObj.y = e.clientY; 
-    mouseObj.timeLastMoved = time;
-    mouseObj.moved = true;
-};
-const handleMouseUp = ( e ) => { mouseObj.mouseup = true; };
-const handleMouseDown = ( e ) => { mouseObj.mousedown = true; };
-
-const spawnMargin = 24; // how far off-screen to spawn whisps
-let nextWhispIdVar = 0;
-const nextWhispId = () => nextWhispIdVar++;
-let prevMouseCoords = [ mouseObj.x, mouseObj.y ];
-
+const canvasList = [];
 const colorHues = { red:0, orange:30, yellow:60, green:100, sea:150, cyan:180, 
     sky:200, blue:240, indigo:260, purple:280, pink:300, fuschia:335, white:-1 };
 const colorSets = {
@@ -105,6 +54,8 @@ const whispData = {
     },
 }
 
+function getWidth( canvasEl ) { return canvasEl.clientWidth; }
+function getHeight( canvasEl ) { return canvasEl.clientHeight; }
 const degToRad = deg => 2 * Math.PI * deg / 360; 
 const modVals = {       // increase from [0] (zero) to [10] (max)
     maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 ],
@@ -128,7 +79,7 @@ const mods = {
                     maxSpeed: modVals.maxSpeed[5], 
                     acceleration: modVals.acceleration[5],
                     turnSpeed: modVals.turnSpeed[4]
-                } ]
+                } ],
             } ],
         },
         fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[10], acceleration: modVals.acceleration[10], } } },
@@ -160,6 +111,11 @@ const mods = {
     smallest: { default: { main: {minLightScale: 0.25, maxLightScale: 0.75, minWhispScale: 1, maxWhispScale: 1, }}},
 };
 
+const countChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ];
+const multiplierChars = [ 'x', '*', 'X' ];
+const alphaChars = [ 'A', 'a', '%' ];
+const zChars = [ 'Z', 'z' ];
+
 function getPropType( typeCode ) {
     const type = typeCode.toUpperCase();
     return ( whispData.propTypes.hasOwnProperty(type) 
@@ -168,7 +124,7 @@ function getPropType( typeCode ) {
 }
 
 function getSpawnLocValue( [ name, ...args ] ) {
-    const sides = [...(name.split( '' ))];
+    const sides = name.split( '' );
     let _range = [];
     args.forEach( arg => { _range.push( parseInt( arg ) ); } );
     _range.sort( ( a, b ) => a - b );
@@ -179,16 +135,16 @@ function getSpawnLocValue( [ name, ...args ] ) {
     return _result;
 }
 
-function getBehaviorValue( args, _i ) {
+function getBehaviorValue( args, _i, cIndex ) {
     let actions = [];
     let conditions = [];
     args.forEach( segment => {
         const values = segment.split( '.' );
         const [ prefix, ...vals ] = values;
         if( prefix === 'if' || prefix === 'on' || prefix === 'when' || prefix === 'while' ) {
-            conditions.push( ( new Condition( vals, _i ) ) );
+            conditions.push( new Condition( vals, _i, cIndex ) );
         } else {
-            actions.push( ( new Action( values, _i ) ) );
+            actions.push( new Action( values, _i, cIndex ) );
         }
     } );
     const behavior = { actions: actions, conditions: conditions };
@@ -218,27 +174,28 @@ function getSideLength( whichSide ) {
     }
     return 0;
 }
-function newSpawnCoords ( [...spawnLocArray] ) { 
+function newSpawnCoords ( [...spawnLocArray], canvasEl, spawnMargin ) { 
     const spawnLoc = ( ( spawnLocArray.length > 0 ) ? spawnLocArray 
                 : [ { sides: ['t','b','l','r'], range: { start: 0, end: 100 } } ] );
+    const [ w, h ] = [ getWidth( canvasEl ), getHeight( canvasEl ) ];
     const sideSpawn = { 
-        t: { lowX: 0, highX: getWidth(), lowY: -spawnMargin, highY: -spawnMargin }, 
-        b: { lowX: 0, highX: getWidth(), lowY: getHeight() + spawnMargin, highY: getHeight() + spawnMargin },
-        l: { lowX: -spawnMargin, highX: -spawnMargin, lowY: 0, highY: getHeight() }, 
-        r: { lowX: getWidth() + spawnMargin, highX: getWidth() + spawnMargin, lowY: 0, highY: getHeight() }, 
+        t: { lowX: 0, highX: w, lowY: -spawnMargin, highY: -spawnMargin }, 
+        b: { lowX: 0, highX: w, lowY: h + spawnMargin, highY: h + spawnMargin },
+        l: { lowX: -spawnMargin, highX: -spawnMargin, lowY: 0, highY: h }, 
+        r: { lowX: w + spawnMargin, highX: w + spawnMargin, lowY: 0, highY: h }, 
     };
     
     spawnLoc.forEach( loc => {
         (loc.sides).forEach( side => {
             if( side === 'b' || side === 't' ) {
                 sideSpawn[ side ] = { 
-                    lowX: Math.floor( getWidth() * loc.range.start / 100 ),
-                    highX: Math.floor( getWidth() * loc.range.end / 100 )
+                    lowX: Math.floor( w * loc.range.start / 100 ),
+                    highX: Math.floor( w * loc.range.end / 100 )
                 };
             } else if( side === 'r' || side === 'l' ) {
                 sideSpawn[ side ] = { 
-                    lowY: Math.floor( getHeight() * loc.range.start / 100 ),
-                    highY: Math.floor( getHeight() * loc.range.end / 100 )
+                    lowY: Math.floor( h * loc.range.start / 100 ),
+                    highY: Math.floor( h * loc.range.end / 100 )
                 };
             }
         } );
@@ -257,10 +214,10 @@ function newSpawnCoords ( [...spawnLocArray] ) {
         if( rand >= min && rand < min + w ) {
             if( s.side === 't' || s.side === 'b' ) { 
                     result.x = rand - min + s.lowX;
-                    result.y = ( ( s.side === 't' ) ? -spawnMargin : getHeight() + spawnMargin ); 
+                    result.y = ( ( s.side === 't' ) ? -spawnMargin : h + spawnMargin ); 
             }
             else if( s.side === 'l' || s.side === 'r' ) { 
-                result.x = ( ( s.side === 'l' ) ? -spawnMargin : getWidth() + spawnMargin ); 
+                result.x = ( ( s.side === 'l' ) ? -spawnMargin : w + spawnMargin ); 
                 result.y = rand - min + s.lowY; 
             }
         }
@@ -323,7 +280,8 @@ const getCondShiftMultiplierObj = type => ( rndConditionShifts.hasOwnProperty( t
 const getCondShiftMultiplier = type => ( Object.entries( getCondShiftMultiplierObj( type ) ) );
 
 class Condition {
-    constructor( _args, _i ) {
+    constructor( _args, _i, cIndex ) {
+        this.canvasIndex = cIndex;
         this.whispIndex = _i; 
         if( Array.isArray( _args ) ){
             Object.assign( this, getConditionArgsObj( _args, _i ) );
@@ -346,15 +304,15 @@ class Condition {
                     case 'outside': reverseLogic = true;
                     case 'within':
                     case 'in':
-                        [ x1, y1 ] = whispList[this.whispIndex].getTargetCoords( this.subject );
-                        distance = pointDistance( x1, y1, whispList[this.whispIndex].coords.x, whispList[this.whispIndex].coords.y );
+                        [ x1, y1 ] = canvasList[ this.canvasIndex ].whispList[this.whispIndex].getTargetCoords( this.subject );
+                        distance = pointDistance( x1, y1, canvasList[ this.canvasIndex ].whispList[this.whispIndex].coords.x, canvasList[ this.canvasIndex ].whispList[this.whispIndex].coords.y );
                         return ( !reverseLogic ? ( distance <= this.max && distance >= this.min ) 
                                 : !( distance <= this.max && distance >= this.min ) );
                     case 'speed':
-                        subjectSpeed = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[0];
+                        subjectSpeed = ( canvasList[ this.canvasIndex ].whispList[this.whispIndex].getTargetVector( this.subject ) )[0];
                         return ( subjectSpeed <= this.max && subjectSpeed >= this.min );
                     case 'direction':
-                        subjectDirection = ( whispList[this.whispIndex].getTargetVector( this.subject ) )[1];
+                        subjectDirection = ( canvasList[ this.canvasIndex ].whispList[this.whispIndex].getTargetVector( this.subject ) )[1];
                         return ( subjectDirection <= this.max && subjectDirection >= this.min );
                     default: return true;
                 }
@@ -392,7 +350,7 @@ const getActionArgsObj = ( [ act, ...args ], i ) => {
 const rndActionShifts = { maxSpeed: 30, turnSpeed: degToRad( 15 ), acceleration: 20 };
 
 class Action {
-    constructor( _args, _i ) { 
+    constructor( _args, _i, cIndex ) { 
         if( Array.isArray( _args ) ) { 
             Object.assign( this, getActionArgsObj( _args, _i ) );
         } else if( typeof _args === 'object' ) {
@@ -402,23 +360,23 @@ class Action {
             if( this.hasOwnProperty( k )  && !( typeof this[ k ] === 'string' ) )
             this[ k ] = rndShift( this[ k ], rndActionShifts[ k ] )
         } );
-        Object.assign( this, { whispIndex: _i } );
+        Object.assign( this, { whispIndex: _i, canvasIndex: cIndex } );
     }
     perform() {  
         const args = [];
         actionArgNames[ this.act ].forEach( argName => { args.push( this[ argName ] ) } );
         switch( this.act ) {
-            case 'follow': whispList[this.whispIndex].follow( args ); break;
+            case 'follow': canvasList[ this.canvasIndex ].whispList[this.whispIndex].follow( args ); break;
             case 'drift': break;
             case 'turn': break;
             case 'orbit': break;
-            case 'flee': whispList[this.whispIndex].flee( args ); break;
+            case 'flee': canvasList[ this.canvasIndex ].whispList[this.whispIndex].flee( args ); break;
             default: break;
         }
     }
 }
 
-function getModObject( args, whispIndex ) {
+function getModObject( args, whispIndex, cIndex ) {
     let modsObj = { main: { }, behaviors: [] };
     let behav = { actions: [], conditions: [] };
     if( Array.isArray( args ) && ( mods.hasOwnProperty( args[0] ) ) ) {
@@ -432,9 +390,9 @@ function getModObject( args, whispIndex ) {
                         mods[ type ].default.behaviors.forEach ( _b => {
                             const newC = []; const newA = [];
                             if( _b.hasOwnProperty( 'conditions' ) && Array.isArray( _b.conditions ) )
-                                _b.conditions.forEach( _c => { newC.push( ( new Condition( _c, whispIndex ) ) ); } );
+                                _b.conditions.forEach( _c => { newC.push( ( new Condition( _c, whispIndex, cIndex ) ) ); } );
                             if( _b.hasOwnProperty( 'actions' ) && Array.isArray( _b.actions ) )
-                                _b.actions.forEach( _a => { newA.push( ( new Action( _a, whispIndex ) ) ); } );
+                                _b.actions.forEach( _a => { newA.push( ( new Action( _a, whispIndex, cIndex ) ) ); } );
                                 modsObj.behaviors.push( { actions: newA, conditions: newC } );
                         } ); 
                     }
@@ -446,12 +404,12 @@ function getModObject( args, whispIndex ) {
                                 if( mods[ type ][s].hasOwnProperty( 'behavior' ) ) {
                                     if( mods[ type ][s].behavior.hasOwnProperty( 'actions' ) ) {
                                         mods[ type ][s].behavior.actions.forEach( _a => {
-                                            behav.actions.push( ( new Action( _a, whispIndex ) ) );
+                                            behav.actions.push( new Action( _a, whispIndex, cIndex ) );
                                         } );
                                     }
                                     if( mods[ type ][s].behavior.hasOwnProperty( 'conditions' ) ) {
                                         mods[ type ][s].behavior.conditions.forEach( _c => {
-                                            behav.conditions.push( ( new Condition( _c, whispIndex ) ) );
+                                            behav.conditions.push( new Condition( _c, whispIndex, cIndex ) );
                                         } );
                                     }
                                 } else if( mods[ type ][s].hasOwnProperty( 'bmod' ) && modsObj.behaviors.length > 0 ) {
@@ -515,13 +473,13 @@ function getModObject( args, whispIndex ) {
     }
     if( modsObj.main.hasOwnProperty( 'minLightScale' ) && modsObj.main.hasOwnProperty( 'maxLightScale' ) ) 
         modsObj.main.lightScale = rndRange( modsObj.main.minLightScale, modsObj.main.maxLightScale );
-
     return modsObj;
 }
 
 class Whisp {
-    constructor( whispString, i ) {
+    constructor( whispString, i, cIndex, canvEl, spawnMargin ) {
         const data = whispString.split( ' ', 20 );
+        this.canvasIndex = cIndex;
         this.behaviors = [];
         const spawnData = [];
         data.forEach( phrase => { 
@@ -529,7 +487,7 @@ class Whisp {
             const propType = getPropType( phraseType );
             switch( phraseType.toUpperCase() ) {          
                 case 'B': // BEHAVIOR - add to behavior ( actions[] & conditions[] ) to behaviors[]
-                    this.behaviors.push( getBehaviorValue( [ phraseName, ...args ], i ) ); 
+                    this.behaviors.push( getBehaviorValue( [ phraseName, ...args ], i, cIndex ) ); 
                     break;
                 case 'WS': case 'LS': // WHISP SIZE or LIGHT SIZE - set size (x32px) of whisp or light
                     Object.assign( this, getScaleValue( fixArgs( [ phraseName, ...args ] ) ) );
@@ -542,7 +500,7 @@ class Whisp {
                     break;
                 case '&': case 'T':
                 case 'M' : case 'MOD': case 'MODS': // MODS - simpler way to change whisp settings
-                    const modObject = getModObject( [ phraseName, ...args ], i );
+                    const modObject = getModObject( [ phraseName, ...args ], i, cIndex );
                     Object.assign( this, modObject.main );
                     if( modObject.hasOwnProperty( 'behaviors' ) && Array.isArray( modObject.behaviors ) ) {
                         modObject.behaviors.forEach( _b => {
@@ -551,7 +509,7 @@ class Whisp {
                     }
                     break;
                 default:
-                    const modObject2 = getModObject( [ phraseType, phraseName, ...args ], i );
+                    const modObject2 = getModObject( [ phraseType, phraseName, ...args ], i, cIndex );
                     Object.assign( this, modObject2.main );
                     if( modObject2.hasOwnProperty( 'behaviors' ) && Array.isArray( modObject2.behaviors ) ) {
                         modObject2.behaviors.forEach( _b => {
@@ -560,20 +518,24 @@ class Whisp {
                     }
                     break;
             }
-        } );
-        this.spawnLoc = spawnData;
-        const sc = newSpawnCoords( spawnData );
+        } ); 
+        const finalSpawnData = ( 
+            ( spawnData.length > 0 && spawnData[0].hasOwnProperty( 'sides' ) ) 
+            ? spawnData : getSpawnLocValue( [ 'tblr', '0', '100' ] )
+        );
+        this.spawnLoc = finalSpawnData;
+        const sc = newSpawnCoords( spawnData, canvEl, spawnMargin );
         this.coords = { x: sc.x, y: sc.y };
         this.xspeed = 0;
         this.yspeed = 0;
-        this.id = nextWhispId();
+        this.id = i;
     }
     
     // ------ CALCULATION METHODS -------------------------------------------
     getNearestWhispIndex() {
         let nearest = 9999999;
         let nearestIndex = -1;
-        whispList.forEach( ( _whisp, _i ) => {
+        canvasList[ this.canvasIndex ].whispList.forEach( ( _whisp, _i ) => {
             if( !( _whisp.id === this.id ) ) {
                 const dist = pointDistance( this.coords.x, this.coords.y, _whisp.coords.x, _whisp.coords.y );
                 if( nearest > dist ) {
@@ -584,7 +546,7 @@ class Whisp {
         } );
         return nearestIndex;
     }
-    getNearestWhisp() { return whispList[ this.getNearestWhispIndex() ]; }
+    getNearestWhisp() { return canvasList[ this.canvasIndex ].whispList[ this.getNearestWhispIndex() ]; }
     getNearestWhispCoords() { 
         const _target = this.getNearestWhisp();
         return [ _target.coords.x, _target.coords.y ];
@@ -596,6 +558,7 @@ class Whisp {
     getNearestWhispSpeed() { return ( this.getNearestWhispVector() )[0]; }
     getNearestWhispDirection() { return ( this.getNearestWhispVector() )[1]; }
     getTargetCoords( target ) {
+        const mouseObj = this.getMouseObj();
         switch( target ) {
             default:
             case 'cursor': return [ mouseObj.x, mouseObj.y ];
@@ -621,38 +584,61 @@ class Whisp {
         return [ _speed * Math.cos( _dir ), -_speed * Math.sin( _dir ) ];
     }
 
+    getTimeObj() {
+        return { current: canvasList[ this.canvasIndex ].tCurrent, 
+                lastDrawn: canvasList[ this.canvasIndex ].tLastDrawn,
+                delta: canvasList[ this.canvasIndex ].tDelta
+        };
+    }
+    getMouseObj() {
+        return { x: canvasList[ this.canvasIndex ].mx, 
+                y: canvasList[ this.canvasIndex ].my,
+                mousedown: canvasList[ this.canvasIndex ].mdown, 
+                mouseup: canvasList[ this.canvasIndex ].mup,
+                speed: canvasList[ this.canvasIndex ].mspeed,
+                direction: canvasList[ this.canvasIndex ].mdirection
+        };
+    }
+
     // ------ MOVEMENT METHODS -----------------------------------------------
     moveStep() {
+        const timeObj = this.getTimeObj();
         this.coords.x += this.xspeed * timeObj.delta;
         this.coords.y += this.yspeed * timeObj.delta;
     }
     turn( turnAngle ) {
+        const timeObj = this.getTimeObj();
         const adjustedAngle = turnAngle * timeObj.delta;
         const [ _speed, _dir ] = this.getVector();
         [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed, _dir + adjustedAngle ] )
     }
     turnTowardDirection( targetDirection, turnAngle ) {
+        const timeObj = this.getTimeObj();
         const maxAngle = turnAmount( this.getDirection(), targetDirection );
         this.turn(( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
                 ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
     }
     turnTowardPoint( _x, _y, turnAngle ) {
+        const timeObj = this.getTimeObj();
         const maxAngle = turnAmount( this.getDirection(), pointDirection( this.coords.x, this.coords.y, _x, _y ) );
         this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
                 ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
     }
     turnAwayFromPoint( _x, _y, turnAngle ) {
+        const timeObj = this.getTimeObj();
         const maxAngle = turnAmount( this.getDirection(), pointDirection( _x, _y, this.coords.x, this.coords.y ) );
         this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
                 ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
     }
     slowDown( _amount, _minSpeed ) {
+        const timeObj = this.getTimeObj();
         const [ _speed, _dir ] = this.getVector();
         const dSpeed = ( _speed - _amount * timeObj.delta >= _minSpeed 
                 ? _amount * timeObj.delta : _speed - _minSpeed );
         [ this.xspeed, this.yspeed ] = this.getSpeedXY( [ _speed - dSpeed, _dir ] );
     }
     speedUp( _amount, _maxSpeed ) {
+        const timeObj = this.getTimeObj();
         const [ _speed, _dir ] = this.getVector();
         const dSpeed = ( _speed + _amount * timeObj.delta <= _maxSpeed 
                 ? _amount * timeObj.delta : _maxSpeed - _speed );
@@ -683,7 +669,7 @@ class Whisp {
         } );
     }
     getLightGradient() {
-        const gradient = ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale );
+        const gradient = canvasList[ this.canvasIndex ].ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale );
         const startColor = (  ( this.lightColor >= 0 )
                             ? `hsla(${ this.lightColor },100%,50%,1)`
                             : `hsla(0,100%,100%,1)` );
@@ -696,11 +682,11 @@ class Whisp {
         return gradient;
     };
     drawLight() {
-        ctx.globalCompositeOperation = 'screen';
-        ctx.beginPath();
-        ctx.fillStyle = this.getLightGradient();
-        ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale, 32 * this.lightScale, 0, 0, 2 * Math.PI );
-        ctx.fill();
+        canvasList[ this.canvasIndex ].ctx.globalCompositeOperation = 'screen';
+        canvasList[ this.canvasIndex ].ctx.beginPath();
+        canvasList[ this.canvasIndex ].ctx.fillStyle = this.getLightGradient();
+        canvasList[ this.canvasIndex ].ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale, 32 * this.lightScale, 0, 0, 2 * Math.PI );
+        canvasList[ this.canvasIndex ].ctx.fill();
     }
     step() {
         this.executeBehaviors();
@@ -709,12 +695,26 @@ class Whisp {
     }
 }
 
-function readWhispDoc( wDoc ) {
-    let doc = wDoc;
-    const countChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ];
-    const multiplierChars = [ 'x', '*', 'X' ];
-    const alphaChars = [ 'A', 'a', '%' ];
-    const zChars = [ 'Z', 'z' ];
+
+
+// const whispList = readWhispDoc( whispDoc ); 
+// console.log(whispList);
+
+const getWhispDoc = ( wSurface ) => {
+    if( typeof wSurface.dataset.whisps === 'string' ) {
+        return wSurface.dataset.whisps;
+    }
+    return "10x(whisp)";
+}
+
+function createCanvasList() {
+    const whispSurfaces = window.document.getElementsByClassName("whisps");
+    for( let a = 0 ; a < whispSurfaces.length ; a += 1 ) {
+        canvasList.push( new WhispCanvas( whispSurfaces[a], a ) );
+    }
+}
+
+function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
     const list = [];
     let alphaVal = -1;
     let zVal = false;
@@ -752,8 +752,7 @@ function readWhispDoc( wDoc ) {
             }
             wString = wString.trim();
             for( let c = 0 ; c < parseInt( countString ) ; c += 1 ) {
-                const w = new Whisp( wString, list.length );
-                list.push( w );
+                list.push( new Whisp( wString, list.length, canvasIndex, canvEl, spawnMargin ) );
             }
             a += _char + 1;     // jump forward to after ')'
         } else if( alphaVal === -1 && alphaChars.includes( doc.charAt( a ) ) ) {
@@ -786,47 +785,113 @@ function readWhispDoc( wDoc ) {
             zVal = parseInt( countString );
         }
     }
-    shadowAlpha = ( !( alphaVal === -1 ) ? alphaVal : 1 );
-    canvasEl.style.zIndex = ( !( zVal === false ) ? zVal : 1 );
-    return list;
+    alphaVal = ( !( alphaVal === -1 ) ? alphaVal : 1 );
+    zVal = ( !( zVal === false ) ? zVal : 1 );
+    return { wList: list, aVal: alphaVal, zVal: zVal };
 }
 
-const whispList = readWhispDoc( whispDoc ); 
-console.log(whispList)
+class WhispCanvas {
+    constructor( wSurface, i ) {
+        const sMargin = 120;
+        const wDoc = getWhispDoc( wSurface );
+        const wid = `whisps-canvas-${ i }`;
+        const canvas = window.document.createElement("canvas");
+        canvas.id = wid;
+        canvas.style.position = "fixed";
+        canvas.style.top = 0;
+        canvas.style.left = 0;
+        canvas.style.mixBlendMode= 'multiply';
+        canvas.style.height = "100%";
+        canvas.style.width = "100%";
+        canvas.style.zIndex = 1;
+        canvas.style.pointerEvents = 'none';
+        wSurface.appendChild( canvas );
+        
+        const canv = window.document.getElementById(wid);
+        this.canvasEl = canv;
+        this.canvasIndex = i;
+        this.nextWhispIdVar = 0;
+        const { wList, aVal, zVal } = readWhispDoc( wDoc, i, canv, sMargin );
+        this.whispList = wList;
+        this.shadowAlpha = aVal;
+        canv.style.zIndex = zVal;
+        this.spawnMargin = sMargin; // how far off-screen to spawn whisps
+        this.ctx = canv.getContext("2d");
+        
+        this.tLastDrawn = ( new Date() ).getTime() / 1000 - ( 1000 / 60 );
+        this.tCurrent = ( new Date() ).getTime() / 1000;
+        this.tDelta = 1000 / 60;
+        this.mx = getWidth( canv ) / 2;     // mouse-x
+        this.my = getHeight( canv ) / 2;    // mouse-y
+        this.mdown = false; this.mup = false;
+        this.mspeed = 0; this.mdirection = 0;
+        this.mxPrev = getWidth( canv ) / 2;
+        this.myPrev = getHeight( canv ) / 2;
 
-function draw() {
-    const w = getWidth();
-    const h = getHeight();
+        this.isOn = true;
+    }
 
-    timeObj.lastDrawn = timeObj.current;
-    timeObj.current = ( new Date() ).getTime() / 1000;
-    timeObj.delta = timeObj.current - timeObj.lastDrawn;
+    toggleOnOff() { this.isOn = !this.isOn; }
+    setOnOff( e ) { this.isOn === e.target.value; }
+
+    //const closeButton = window.document.createElement( 'button' );
+
+    // getWidth() { return this.canvasEl.clientWidth; }
+    // getHeight() { return this.canvasEl.clientHeight; }
+    handleResize() { 
+        this.canvasEl.height = getHeight( this.canvasEl ); 
+        this.canvasEl.width = getWidth( this.canvasEl ); 
+    }
+    handleMouseMove( e ) { 
+        const time = ( new Date() ).getTime() / 1000;
+        this.mxPrev = this.mx;
+        this.myPrev = this.my;
+        this.mx = e.clientX; 
+        this.my = e.clientY; 
+        
+    };
+    handleMouseUp( e ) { this.mup = true; };
+    handleMouseDown( e ) { this.mdown = true; };
+    nextWhispId() { return this.nextWhispIdVar++ };
+
+    draw() {
+        const w = getWidth( this.canvasEl );
+        const h = getHeight( this.canvasEl );
     
-    mouseObj.speed = pointDistance( prevMouseCoords[0], prevMouseCoords[1], mouseObj.x, mouseObj.y ) / timeObj.delta;
-    mouseObj.direction = ( !( mouseObj.speed === 0 ) 
-                ? pointDirection( prevMouseCoords[0], prevMouseCoords[1], mouseObj.x, mouseObj.y ) : 0 );
-
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.clearRect(0, 0, w, h); // clear canvas
+        this.tLastDrawn = this.tCurrent;
+        this.tCurrent = ( new Date() ).getTime() / 1000;
+        this.tDelta = this.tCurrent - this.tLastDrawn;
+        
+        this.mspeed = pointDistance( this.mxPrev, this.myPrev, this.mx, this.my ) / this.tDelta;
+        this.mdirection = ( !( this.mspeed === 0 ) 
+                    ? pointDirection( this.mxPrev, this.myPrev, this.mx, this.my ) : 0 );
     
-    whispList.forEach( whisp => {
-        whisp.step();
-    } );
-    ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = `rgba(0, 0, 0, ${ shadowAlpha } )`;
-    ctx.fillRect( 0, 0, w, h );
-
-    prevMouseCoords = [ mouseObj.x, mouseObj.y ];
-    window.requestAnimationFrame(draw);
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.clearRect(0, 0, w, h); // clear canvas
+        
+        this.whispList.forEach( whisp => {
+            whisp.step();
+        } );
+        this.ctx.globalCompositeOperation = "screen";
+        this.ctx.fillStyle = `rgba(0, 0, 0, ${ this.shadowAlpha } )`;
+        this.ctx.fillRect( 0, 0, w, h );
+    
+        this.mxPrev = this.mx;
+        this.myPrev = this.my;
+        if( this.isOn )
+            window.requestAnimationFrame( () => { this.draw() } );
+    }
+    
+    init() {
+        this.handleResize();
+        window.requestAnimationFrame( () => { this.draw(); } );
+        window.addEventListener( 'resize', () => { this.handleResize() } );
+        window.onmousemove = e => { this.handleMouseMove( e ); };
+        window.onmouseup = e => { this.handleMouseUp( e ); };
+        window.onmousedown = e => { this.handleMouseDown( e ); };
+    }
 }
 
-function init() {
-    handleResize();
-    window.requestAnimationFrame(draw);
-    window.addEventListener( 'resize', handleResize );
-    window.onmousemove = handleMouseMove;
-    window.onmouseup = handleMouseUp;
-    window.onmousedown = handleMouseDown;
-}
-
-whispSurfaces[0].onload = init;
+createCanvasList();
+// whispSurfaces[0].onload = init;
+canvasList.forEach( canv => { canv.init(); } );
