@@ -115,6 +115,7 @@ const countChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ];
 const multiplierChars = [ 'x', '*', 'X' ];
 const alphaChars = [ 'A', 'a', '%' ];
 const zChars = [ 'Z', 'z' ];
+const nameChars = [ '=', '/', ':' ];
 
 function getPropType( typeCode ) {
     const type = typeCode.toUpperCase();
@@ -174,7 +175,7 @@ function getSideLength( whichSide ) {
     }
     return 0;
 }
-function newSpawnCoords ( [...spawnLocArray], canvasEl, spawnMargin ) { 
+function newSpawnCoords ( spawnLocArray, canvasEl, spawnMargin ) { 
     const spawnLoc = ( ( spawnLocArray.length > 0 ) ? spawnLocArray 
                 : [ { sides: ['t','b','l','r'], range: { start: 0, end: 100 } } ] );
     const [ w, h ] = [ getWidth( canvasEl ), getHeight( canvasEl ) ];
@@ -236,7 +237,7 @@ const turnAmount = ( _dir1, _dir2 ) => {
     return best;
 }
 
-const fixArgs = ( args ) => {
+const fixArgs = args => {
     const newArgs = [];
     args.forEach( arg => {
         const argInt = parseInt( arg );
@@ -377,7 +378,7 @@ class Action {
 }
 
 function getModObject( args, whispIndex, cIndex ) {
-    let modsObj = { main: { }, behaviors: [] };
+    let modsObj = { main: {}, behaviors: [] };
     let behav = { actions: [], conditions: [] };
     if( Array.isArray( args ) && ( mods.hasOwnProperty( args[0] ) ) ) {
         args.forEach( arg => {
@@ -519,11 +520,10 @@ class Whisp {
                     break;
             }
         } ); 
-        const finalSpawnData = ( 
-            ( spawnData.length > 0 && spawnData[0].hasOwnProperty( 'sides' ) ) 
-            ? spawnData : getSpawnLocValue( [ 'tblr', '0', '100' ] )
-        );
-        this.spawnLoc = finalSpawnData;
+        if( spawnData.length === 0 ) {
+            spawnData.push( getSpawnLocValue( [ 'tblr', '0', '100' ] ) );
+        }
+        this.spawnLoc = spawnData;
         const sc = newSpawnCoords( spawnData, canvEl, spawnMargin );
         this.coords = { x: sc.x, y: sc.y };
         this.xspeed = 0;
@@ -720,6 +720,7 @@ function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
     let zVal = false;
     let _char = 1;
     let count = 0;
+    let nameString = '';
     let countString = '';
     let wString = '';
     for( let a = 0 ; a < doc.length ; a += 1 ) {
@@ -783,11 +784,22 @@ function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
                 countString = '1';
             }
             zVal = parseInt( countString );
+        } else if( nameChars.includes( doc.charAt( a ) ) ) {
+            let charOffset = 0;
+            for( let d = 1 ; d < 20 && a + d < doc.length && 
+                    ( [ ...countChars, '-', '_' ].includes( doc.charAt( a + d ) ) 
+                    || !( doc.charAt( a + d ).toLowerCase() === doc.charAt( a + d ).toUpperCase() ) ) ;
+                    d += 1 
+            ) {
+                nameString = `${nameString}${doc.charAt( a + d )}`;
+                charOffset = d;
+            }
+            a += charOffset + 1;
         }
     }
     alphaVal = ( !( alphaVal === -1 ) ? alphaVal : 1 );
     zVal = ( !( zVal === false ) ? zVal : 1 );
-    return { wList: list, aVal: alphaVal, zVal: zVal };
+    return { wList: list, aVal: alphaVal, zVal: zVal, nameVal: nameString };
 }
 
 class WhispCanvas {
@@ -797,23 +809,23 @@ class WhispCanvas {
         const wid = `whisps-canvas-${ i }`;
         const canvas = window.document.createElement("canvas");
         canvas.id = wid;
-        canvas.style.position = "fixed";
+        canvas.style.position = "absolute";
         canvas.style.top = 0;
         canvas.style.left = 0;
         canvas.style.mixBlendMode= 'multiply';
-        canvas.style.height = "100%";
+        canvas.style.height = '100%';
         canvas.style.width = "100%";
         canvas.style.zIndex = 1;
         canvas.style.pointerEvents = 'none';
         wSurface.appendChild( canvas );
-        
         const canv = window.document.getElementById(wid);
+        this.surface = wSurface;
         this.canvasEl = canv;
         this.canvasIndex = i;
-        this.nextWhispIdVar = 0;
-        const { wList, aVal, zVal } = readWhispDoc( wDoc, i, canv, sMargin );
+        const { wList, aVal, zVal, nameVal } = readWhispDoc( wDoc, i, canv, sMargin );
         this.whispList = wList;
         this.shadowAlpha = aVal;
+        this.canvasName = nameVal;
         canv.style.zIndex = zVal;
         this.spawnMargin = sMargin; // how far off-screen to spawn whisps
         this.ctx = canv.getContext("2d");
@@ -831,13 +843,35 @@ class WhispCanvas {
         this.isOn = true;
     }
 
-    toggleOnOff() { this.isOn = !this.isOn; }
-    setOnOff( e ) { this.isOn === e.target.value; }
-
+    toggleOnOff() { 
+        this.isOn = !this.isOn; 
+        this.reset();
+        if( this.isOn === true ) {
+            window.requestAnimationFrame( () => { this.draw(); } ); 
+        }
+    } 
+    setOnOff( e ) { 
+        const targetEl = e.target;
+        const targetType = targetEl.type;
+        const typeProps = {
+            'checkbox': 'checked',
+        } ;
+        this.isOn = targetEl[ typeProps[targetType] ];
+        this.reset();
+        if( this.isOn === true ) {
+            window.requestAnimationFrame( () => { this.draw(); } ); 
+        }
+    }
+    turnOn() { 
+        this.isOn = true; 
+        this.reset(); 
+        window.requestAnimationFrame( () => { this.draw(); } );
+    }
+    turnOff() {
+        this.isOn = false;
+        this.reset();
+    }
     //const closeButton = window.document.createElement( 'button' );
-
-    // getWidth() { return this.canvasEl.clientWidth; }
-    // getHeight() { return this.canvasEl.clientHeight; }
     handleResize() { 
         this.canvasEl.height = getHeight( this.canvasEl ); 
         this.canvasEl.width = getWidth( this.canvasEl ); 
@@ -852,7 +886,6 @@ class WhispCanvas {
     };
     handleMouseUp( e ) { this.mup = true; };
     handleMouseDown( e ) { this.mdown = true; };
-    nextWhispId() { return this.nextWhispIdVar++ };
 
     draw() {
         const w = getWidth( this.canvasEl );
@@ -867,7 +900,7 @@ class WhispCanvas {
                     ? pointDirection( this.mxPrev, this.myPrev, this.mx, this.my ) : 0 );
     
         this.ctx.globalCompositeOperation = 'source-over';
-        this.ctx.clearRect(0, 0, w, h); // clear canvas
+        this.ctx.clearRect( 0, 0, w, h ); // clear canvas
         
         this.whispList.forEach( whisp => {
             whisp.step();
@@ -878,10 +911,78 @@ class WhispCanvas {
     
         this.mxPrev = this.mx;
         this.myPrev = this.my;
-        if( this.isOn )
-            window.requestAnimationFrame( () => { this.draw() } );
+        if( this.isOn ) {
+            window.requestAnimationFrame( () => { this.draw(); } );
+        } else {
+            this.ctx.globalCompositeOperation = 'source-over';
+            this.ctx.clearRect( 0, 0, w, h ); // clear canvas
+        }
     }
-    
+
+    reset() {
+        this.whispList.splice( 0, this.whispList.length );
+        const { wList, aVal, zVal, nameVal } = readWhispDoc( getWhispDoc( this.surface ), this.canvasIndex, this.canvasEl, this.spawnMargin );
+        this.whispList = wList;
+        this.canvasName = nameVal
+        this.shadowAlpha = aVal;
+        this.canvasEl.style.zIndex = zVal;
+        this.tCurrent = ( new Date() ).getTime() / 1000;
+        this.tLastDrawn = ( new Date() ).getTime() / 1000;
+        this.tDelta = 0;
+        console.log(this)
+    }
+    initControls() {
+        if( !( this.canvasName === '' ) ) {
+            // 'whisps-{name}-{trigger}-{effect}'
+            const cBase = `whisps-${ this.canvasName }`;
+            const cTriggers = {
+                'click': [ {
+                    ev: 'onclick',
+                    functions: {
+                        'onoff': () => { this.toggleOnOff(); },
+                        'reset': () => { this.reset(); },
+                    },
+                    default: () => { this.toggleOnOff(); },
+                } ],
+                'set': [ {
+                    ev: 'oninput',
+                    functions: {
+                        'onoff': e => { this.setOnOff( e ) },
+                    },
+                    default: e => { this.setOnOff( e ) },
+                } ],
+                'hover': [
+                    {
+                        ev: 'onmouseover',
+                        functions: { 'onoff': () => { this.turnOn(); }, },
+                        default: () => { this.turnOn(); },
+                    },
+                    {
+                        ev: 'onmouseout',
+                        functions: { 'onoff': () => { this.turnOff(); }, },
+                        default: () => { this.turnOff(); },
+                    },
+                ],
+            };
+            Object.keys( cTriggers ).forEach( key => {
+                cTriggers[ key ].forEach( effect => {
+                    Object.keys( effect.functions ).forEach( funct => {
+                        const controllers = window.document.getElementsByClassName( `${ cBase }-${ key }-${ funct }` );
+                        for( let c = 0 ; c < controllers.length ; c += 1 ) {
+                            controllers[ c ][ effect.ev ] = effect.functions[ funct ];
+                        }
+                        if( effect.hasOwnProperty( 'default' ) ) {
+                            const cDefault = window.document.getElementsByClassName( `${ cBase }-${ key }` );
+                            for( let c = 0 ; c < cDefault.length ; c += 1 ) {
+                                cDefault[ c ][ effect.ev ] = effect.default;
+                            }
+                        }
+                        
+                    } );
+                } );
+            } );
+        }
+    }
     init() {
         this.handleResize();
         window.requestAnimationFrame( () => { this.draw(); } );
@@ -889,6 +990,7 @@ class WhispCanvas {
         window.onmousemove = e => { this.handleMouseMove( e ); };
         window.onmouseup = e => { this.handleMouseUp( e ); };
         window.onmousedown = e => { this.handleMouseDown( e ); };
+        this.initControls();
     }
 }
 
