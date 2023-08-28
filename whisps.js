@@ -54,8 +54,8 @@ const whispData = {
     },
 }
 
-function getWidth( canvasEl ) { return canvasEl.clientWidth; }
-function getHeight( canvasEl ) { return canvasEl.clientHeight; }
+function getWidth( element ) { return element.offsetWidth; }
+function getHeight( element ) { return element.offsetHeight; }
 const degToRad = deg => 2 * Math.PI * deg / 360; 
 const modVals = {       // increase from [0] (zero) to [10] (max)
     maxSpeed: [ 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 ],
@@ -175,10 +175,10 @@ function getSideLength( whichSide ) {
     }
     return 0;
 }
-function newSpawnCoords ( spawnLocArray, canvasEl, spawnMargin ) { 
+function newSpawnCoords ( spawnLocArray, element, spawnMargin ) { 
     const spawnLoc = ( ( spawnLocArray.length > 0 ) ? spawnLocArray 
                 : [ { sides: ['t','b','l','r'], range: { start: 0, end: 100 } } ] );
-    const [ w, h ] = [ getWidth( canvasEl ), getHeight( canvasEl ) ];
+    const [ w, h ] = [ getWidth( element ), getHeight( element ) ];
     const sideSpawn = { 
         t: { lowX: 0, highX: w, lowY: -spawnMargin, highY: -spawnMargin }, 
         b: { lowX: 0, highX: w, lowY: h + spawnMargin, highY: h + spawnMargin },
@@ -306,7 +306,7 @@ class Condition {
                     case 'within':
                     case 'in':
                         [ x1, y1 ] = canvasList[ this.canvasIndex ].whispList[this.whispIndex].getTargetCoords( this.subject );
-                        distance = pointDistance( x1, y1, canvasList[ this.canvasIndex ].whispList[this.whispIndex].coords.x, canvasList[ this.canvasIndex ].whispList[this.whispIndex].coords.y );
+                        distance = pointDistance( x1, y1, canvasList[ this.canvasIndex ].whispList[this.whispIndex].x, canvasList[ this.canvasIndex ].whispList[this.whispIndex].y );
                         return ( !reverseLogic ? ( distance <= this.max && distance >= this.min ) 
                                 : !( distance <= this.max && distance >= this.min ) );
                     case 'speed':
@@ -478,7 +478,7 @@ function getModObject( args, whispIndex, cIndex ) {
 }
 
 class Whisp {
-    constructor( whispString, i, cIndex, canvEl, spawnMargin ) {
+    constructor( whispString, i, cIndex, surface, spawnMargin ) {
         const data = whispString.split( ' ', 20 );
         this.canvasIndex = cIndex;
         this.behaviors = [];
@@ -524,8 +524,9 @@ class Whisp {
             spawnData.push( getSpawnLocValue( [ 'tblr', '0', '100' ] ) );
         }
         this.spawnLoc = spawnData;
-        const sc = newSpawnCoords( spawnData, canvEl, spawnMargin );
-        this.coords = { x: sc.x, y: sc.y };
+        const sc = newSpawnCoords( spawnData, surface, spawnMargin );
+        this.x = sc.x;
+        this.y = sc.y;
         this.xspeed = 0;
         this.yspeed = 0;
         this.id = i;
@@ -537,7 +538,7 @@ class Whisp {
         let nearestIndex = -1;
         canvasList[ this.canvasIndex ].whispList.forEach( ( _whisp, _i ) => {
             if( !( _whisp.id === this.id ) ) {
-                const dist = pointDistance( this.coords.x, this.coords.y, _whisp.coords.x, _whisp.coords.y );
+                const dist = pointDistance( this.x, this.y, _whisp.x, _whisp.y );
                 if( nearest > dist ) {
                     nearest = dist;
                     nearestIndex = _i;
@@ -549,7 +550,7 @@ class Whisp {
     getNearestWhisp() { return canvasList[ this.canvasIndex ].whispList[ this.getNearestWhispIndex() ]; }
     getNearestWhispCoords() { 
         const _target = this.getNearestWhisp();
-        return [ _target.coords.x, _target.coords.y ];
+        return [ _target.x, _target.y ];
     }
     getNearestWhispVector() {
         const _target = this.getNearestWhisp();
@@ -603,8 +604,8 @@ class Whisp {
     // ------ MOVEMENT METHODS -----------------------------------------------
     moveStep() {
         const timeObj = this.getTimeObj();
-        this.coords.x += this.xspeed * timeObj.delta;
-        this.coords.y += this.yspeed * timeObj.delta;
+        this.x += this.xspeed * timeObj.delta;
+        this.y += this.yspeed * timeObj.delta;
     }
     turn( turnAngle ) {
         const timeObj = this.getTimeObj();
@@ -620,13 +621,13 @@ class Whisp {
     }
     turnTowardPoint( _x, _y, turnAngle ) {
         const timeObj = this.getTimeObj();
-        const maxAngle = turnAmount( this.getDirection(), pointDirection( this.coords.x, this.coords.y, _x, _y ) );
+        const maxAngle = turnAmount( this.getDirection(), pointDirection( this.x, this.y, _x, _y ) );
         this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
                 ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
     }
     turnAwayFromPoint( _x, _y, turnAngle ) {
         const timeObj = this.getTimeObj();
-        const maxAngle = turnAmount( this.getDirection(), pointDirection( _x, _y, this.coords.x, this.coords.y ) );
+        const maxAngle = turnAmount( this.getDirection(), pointDirection( _x, _y, this.x, this.y ) );
         this.turn( ( Math.abs( turnAngle * timeObj.delta ) > Math.abs( maxAngle ) 
                 ? maxAngle / timeObj.delta : Math.sign( maxAngle ) * turnAngle ) );
     }
@@ -669,7 +670,7 @@ class Whisp {
         } );
     }
     getLightGradient() {
-        const gradient = canvasList[ this.canvasIndex ].ctx.createRadialGradient( this.coords.x, this.coords.y, 0, this.coords.x, this.coords.y, 32 * this.lightScale );
+        const gradient = canvasList[ this.canvasIndex ].ctx.createRadialGradient( this.x, this.y, 0, this.x, this.y, 32 * this.lightScale );
         const startColor = (  ( this.lightColor >= 0 )
                             ? `hsla(${ this.lightColor },100%,50%,1)`
                             : `hsla(0,100%,100%,1)` );
@@ -685,7 +686,7 @@ class Whisp {
         canvasList[ this.canvasIndex ].ctx.globalCompositeOperation = 'screen';
         canvasList[ this.canvasIndex ].ctx.beginPath();
         canvasList[ this.canvasIndex ].ctx.fillStyle = this.getLightGradient();
-        canvasList[ this.canvasIndex ].ctx.ellipse( this.coords.x, this.coords.y, 32 * this.lightScale, 32 * this.lightScale, 0, 0, 2 * Math.PI );
+        canvasList[ this.canvasIndex ].ctx.ellipse( this.x, this.y, 32 * this.lightScale, 32 * this.lightScale, 0, 0, 2 * Math.PI );
         canvasList[ this.canvasIndex ].ctx.fill();
     }
     step() {
@@ -714,17 +715,38 @@ function createCanvasList() {
     }
 }
 
-function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
+function readWhispDoc( doc, canvasIndex, surface, spawnMargin ) {
     const list = [];
     let alphaVal = -1;
     let zVal = false;
     let _char = 1;
-    let count = 0;
     let nameString = '';
     let countString = '';
     let wString = '';
+    let dString = '';
+    let auxVal = {};
+    const dMods = {
+        'full': () => { auxVal = { surface: window.window }; },
+        'fullscreen': () => { auxVal = { surface: window.window }; },
+    }
     for( let a = 0 ; a < doc.length ; a += 1 ) {
-        if( doc.charAt( a ) === '(' ) {
+        if( doc.charAt( a ) === '[' ) {
+            _char = 1;
+            while( !( doc.charAt( a + _char ) === ']' ) && ( a + _char ) < doc.length ) {
+                dString = `${ dString }${ doc.charAt( a + _char ) }`;   // add character to wString
+                _char += 1;
+            }
+            console.log(dString.split(['-',' ']))
+            dString.trim().split( ['-', ' '] ).forEach( dPhrase => {
+                
+                if( dMods.hasOwnProperty( dPhrase ) ) {
+                    
+                    const dFunct = dMods[ dPhrase ];
+                    dFunct();
+                }
+            } );
+            a += _char + 1;
+        } else if( doc.charAt( a ) === '(' ) {
             count = 0;
             _char = 1;
             countString = '';
@@ -753,7 +775,7 @@ function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
             }
             wString = wString.trim();
             for( let c = 0 ; c < parseInt( countString ) ; c += 1 ) {
-                list.push( new Whisp( wString, list.length, canvasIndex, canvEl, spawnMargin ) );
+                list.push( new Whisp( wString, list.length, canvasIndex, surface, spawnMargin ) );
             }
             a += _char + 1;     // jump forward to after ')'
         } else if( alphaVal === -1 && alphaChars.includes( doc.charAt( a ) ) ) {
@@ -799,7 +821,8 @@ function readWhispDoc( doc, canvasIndex, canvEl, spawnMargin ) {
     }
     alphaVal = ( !( alphaVal === -1 ) ? alphaVal : 1 );
     zVal = ( !( zVal === false ) ? zVal : 1 );
-    return { wList: list, aVal: alphaVal, zVal: zVal, nameVal: nameString };
+    console.log(auxVal)
+    return { wList: list, aVal: alphaVal, zVal: zVal, nameVal: nameString, aux: auxVal };
 }
 
 class WhispCanvas {
@@ -820,26 +843,27 @@ class WhispCanvas {
         wSurface.appendChild( canvas );
         const canv = window.document.getElementById(wid);
         this.surface = wSurface;
+        this.pSurface = wSurface;
         this.canvasEl = canv;
         this.canvasIndex = i;
-        const { wList, aVal, zVal, nameVal } = readWhispDoc( wDoc, i, canv, sMargin );
+        const { wList, aVal, zVal, nameVal, aux } = readWhispDoc( wDoc, i, canv, sMargin );
         this.whispList = wList;
         this.shadowAlpha = aVal;
         this.canvasName = nameVal;
         canv.style.zIndex = zVal;
         this.spawnMargin = sMargin; // how far off-screen to spawn whisps
         this.ctx = canv.getContext("2d");
-        
         this.tLastDrawn = ( new Date() ).getTime() / 1000 - ( 1000 / 60 );
         this.tCurrent = ( new Date() ).getTime() / 1000;
         this.tDelta = 1000 / 60;
-        this.mx = getWidth( canv ) / 2;     // mouse-x
-        this.my = getHeight( canv ) / 2;    // mouse-y
+        this.mx = getWidth( wSurface ) / 2;     // mouse-x
+        this.my = getHeight( wSurface ) / 2;    // mouse-y
         this.mdown = false; this.mup = false;
         this.mspeed = 0; this.mdirection = 0;
-        this.mxPrev = getWidth( canv ) / 2;
-        this.myPrev = getHeight( canv ) / 2;
+        this.mxPrev = getWidth( wSurface ) / 2;
+        this.myPrev = getHeight( wSurface ) / 2;
 
+        this.frame = -1;
         this.isOn = true;
     }
 
@@ -847,49 +871,55 @@ class WhispCanvas {
         this.isOn = !this.isOn; 
         this.reset();
         if( this.isOn === true ) {
-            window.requestAnimationFrame( () => { this.draw(); } ); 
+            this.getFrame(); 
+        } else {
+            this.cancelFrame();
         }
     } 
-    setOnOff( e ) { 
-        const targetEl = e.target;
+    setOnOff( targetEl ) { 
         const targetType = targetEl.type;
         const typeProps = {
             'checkbox': 'checked',
         } ;
-        this.isOn = targetEl[ typeProps[targetType] ];
+        const val = targetEl[ typeProps[targetType] ];
         this.reset();
-        if( this.isOn === true ) {
-            window.requestAnimationFrame( () => { this.draw(); } ); 
+        if( this.isOn === false && val === true ) {
+            this.turnOn(); 
+        } else if( this.isOn === true && val === false ) {
+            this.turnOff();
         }
     }
     turnOn() { 
-        this.isOn = true; 
-        this.reset(); 
-        window.requestAnimationFrame( () => { this.draw(); } );
+        if( this.isOn === false ) {
+            this.isOn = true; 
+            this.reset(); 
+            this.getFrame();
+        }
     }
     turnOff() {
         this.isOn = false;
         this.reset();
+        this.cancelFrame();
+        this.clearCanvas();
     }
-    //const closeButton = window.document.createElement( 'button' );
-    handleResize() { 
-        this.canvasEl.height = getHeight( this.canvasEl ); 
-        this.canvasEl.width = getWidth( this.canvasEl ); 
+    handleResize() {
+        this.canvasEl.height = getHeight( this.surface ); 
+        this.canvasEl.width = getWidth( this.surface ); 
     }
     handleMouseMove( e ) { 
         const time = ( new Date() ).getTime() / 1000;
         this.mxPrev = this.mx;
         this.myPrev = this.my;
-        this.mx = e.clientX; 
-        this.my = e.clientY; 
+        this.mx = e.layerX; 
+        this.my = e.layerY; 
         
     };
     handleMouseUp( e ) { this.mup = true; };
     handleMouseDown( e ) { this.mdown = true; };
 
     draw() {
-        const w = getWidth( this.canvasEl );
-        const h = getHeight( this.canvasEl );
+        const w = getWidth( this.surface );
+        const h = getHeight( this.surface );
     
         this.tLastDrawn = this.tCurrent;
         this.tCurrent = ( new Date() ).getTime() / 1000;
@@ -899,8 +929,7 @@ class WhispCanvas {
         this.mdirection = ( !( this.mspeed === 0 ) 
                     ? pointDirection( this.mxPrev, this.myPrev, this.mx, this.my ) : 0 );
     
-        this.ctx.globalCompositeOperation = 'source-over';
-        this.ctx.clearRect( 0, 0, w, h ); // clear canvas
+        this.clearCanvas();
         
         this.whispList.forEach( whisp => {
             whisp.step();
@@ -912,24 +941,35 @@ class WhispCanvas {
         this.mxPrev = this.mx;
         this.myPrev = this.my;
         if( this.isOn ) {
-            window.requestAnimationFrame( () => { this.draw(); } );
+            this.getFrame();
         } else {
-            this.ctx.globalCompositeOperation = 'source-over';
-            this.ctx.clearRect( 0, 0, w, h ); // clear canvas
+            this.cancelFrame();
+            this.clearCanvas();
         }
     }
-
+    clearCanvas() {
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.clearRect( 0, 0, getWidth( this.surface ), getHeight( this.surface ) ); // clear canvas
+    }
+    getFrame() {
+        this.frame = window.requestAnimationFrame( () => { this.draw(); } );
+    }
+    cancelFrame() {
+        if( !( this.frame === -1 ) ) {
+            window.cancelAnimationFrame( this.frame );
+            this.frame = -1;
+        }
+    }
     reset() {
         this.whispList.splice( 0, this.whispList.length );
-        const { wList, aVal, zVal, nameVal } = readWhispDoc( getWhispDoc( this.surface ), this.canvasIndex, this.canvasEl, this.spawnMargin );
+        const { wList, aVal, zVal, nameVal, aux } = readWhispDoc( getWhispDoc( this.pSurface ), this.canvasIndex, this.surface, this.spawnMargin );
         this.whispList = wList;
-        this.canvasName = nameVal
+        this.canvasName = nameVal;
         this.shadowAlpha = aVal;
         this.canvasEl.style.zIndex = zVal;
         this.tCurrent = ( new Date() ).getTime() / 1000;
         this.tLastDrawn = ( new Date() ).getTime() / 1000;
         this.tDelta = 0;
-        console.log(this)
     }
     initControls() {
         if( !( this.canvasName === '' ) ) {
@@ -947,9 +987,10 @@ class WhispCanvas {
                 'set': [ {
                     ev: 'oninput',
                     functions: {
-                        'onoff': e => { this.setOnOff( e ) },
+                        'onoff': e => { this.setOnOff( e.target ) },
                     },
-                    default: e => { this.setOnOff( e ) },
+                    default: e => { this.setOnOff( e.target ) },
+                    auto: () => {  },
                 } ],
                 'hover': [
                     {
@@ -970,11 +1011,15 @@ class WhispCanvas {
                         const controllers = window.document.getElementsByClassName( `${ cBase }-${ key }-${ funct }` );
                         for( let c = 0 ; c < controllers.length ; c += 1 ) {
                             controllers[ c ][ effect.ev ] = effect.functions[ funct ];
+                            if( key === 'set' && funct === 'onoff' ) {
+                                this.setOnOff( controllers[ c ] );
+                            }
                         }
                         if( effect.hasOwnProperty( 'default' ) ) {
                             const cDefault = window.document.getElementsByClassName( `${ cBase }-${ key }` );
                             for( let c = 0 ; c < cDefault.length ; c += 1 ) {
                                 cDefault[ c ][ effect.ev ] = effect.default;
+                                this.setOnOff( cDefault[ c ] );
                             }
                         }
                         
@@ -985,15 +1030,14 @@ class WhispCanvas {
     }
     init() {
         this.handleResize();
-        window.requestAnimationFrame( () => { this.draw(); } );
-        window.addEventListener( 'resize', () => { this.handleResize() } );
-        window.onmousemove = e => { this.handleMouseMove( e ); };
-        window.onmouseup = e => { this.handleMouseUp( e ); };
-        window.onmousedown = e => { this.handleMouseDown( e ); };
+        window.addEventListener( 'resize', () => { this.handleResize(); } );
+        this.surface.onmousemove = e => { this.handleMouseMove( e ); };
+        this.surface.onmouseup = e => { this.handleMouseUp( e ); };
+        this.surface.onmousedown = e => { this.handleMouseDown( e ); };
         this.initControls();
+        this.getFrame();
     }
 }
 
 createCanvasList();
-// whispSurfaces[0].onload = init;
-canvasList.forEach( canv => { canv.init(); } );
+canvasList.forEach( canv => { canv.init(); console.log(canv) } );
