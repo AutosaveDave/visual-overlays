@@ -40,7 +40,7 @@ Any elements with the class name `"whisps"` also need to have a Whisps doc- a st
 Whisps uses strings called Whisps Docs to set up each overlay. Whisps Docs are comprised of several different types of statements:  
 
 #### Name Statements
-In a Whisps Doc, the name is designated by `:`, `/`, or `=`. For example, to name the Whisps Doc "overlay1", include `:overlay1`, `/overlay1`, or `=overlay1` in the Whisps Doc string.  
+In a Whisps Doc, the name is designated by `:`, `/`, or `=`. For example, to assign the name "overlay1" to the Whisps Doc, include `:overlay1`, `/overlay1`, or `=overlay1` in the Whisps Doc string.  
 *It is recommended to begin the WhispsDoc string with its name for consistency.*  
 *Although not required for basic functionality, assigning a name to a Whisps Doc allows you to easily control its overlay with `<input>` elements *(more details in [Assign Controllers](#assign-controllers))*.*  
 
@@ -56,15 +56,32 @@ The opacity (alpha) of the overlay's shadows can be assigned in a Whisps Doc usi
 Alpha statements are designated by `A`, `a`, or `%` before or after the desired alpha value (`0` to `100`). For example:  
 ... To set overlay shadow Alpha to 90%: `A90`, `90A`, `%90`, `90%`, `a90`, or `90a` will all work.  
 
-#### Whisp Statements
+### Whisp Statements
 Each whisp statement consists of two main parts: an **enumerator** and a **Whisp string**.  
 **Whisp strings** are designated by their enclosing parentheses.  
 **Enumerators** can be placed adjacent to a Whisp string *(immediately before or immediately after enclosing parentheses of a Whisp string)* to designate how many whisps should be generated from that Whisp string.  
-**Enumerators** can use a few different syntaxes. For example, if you wanted to generate 12 whisps from Whisp string `(whisp)`, all of the following will work:  
+#### Enumerators  
+Enumerators can use a few different syntaxes. For example, if you wanted to generate 12 whisps from Whisp string `(whisp)`, all of the following will work:  
 ... `12(whisp)` or `(whisp)12`  
 ... `12x(whisp)`, `(whisp)x12`, `12X(whisp)`, or `(whisp)X12`  
 ... `12*(whisp)`, or `(whisp)*12`  
-**Whisp strings** can contain several types of Whisp string statements. Statements within a Whisp string are separated by spaces.
+*If no enumerator is present on a Whisp string, only one whisp will be generated from the string by default.*  
+
+#### Whisp Strings  
+Whisp strings are always enclosed in parentheses, and can contain several types of Whisp phrases. Phrases within a Whisp string are separated by spaces.  
+
+### Whisp Phrases
+Several types of Whisp phrases can be used to customize your overlays. Whisp phrases consist of a **phrase type** and one or more **phrase segments** separated by dashes (`-`). 
+
+#### Mods
+Mods are the most user-friendly Whisp phrases. Mod phrases are designated by
+
+'B' :   'behaviors',
+'LS':   'lightScale',
+'LC':   'lightColor',
+'M':    'mods',
+'@' :   'spawnLoc',
+default: 'mods',
 
 
 #### 
