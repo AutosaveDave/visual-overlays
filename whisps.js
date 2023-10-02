@@ -91,8 +91,6 @@ const mods = {
         slow: { bmod: { actions: {maxSpeed: modVals.maxSpeed[3], acceleration: modVals.acceleration[3], } } },
         slower: { bmod: { actions: {maxSpeed: modVals.maxSpeed[2], acceleration: modVals.acceleration[2], } } },
         slowest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[1], acceleration: modVals.acceleration[1], } } },
-
-        
     },
 
     follow: {
@@ -126,8 +124,7 @@ function getPropType( typeCode ) {
 
 function getSpawnLocValue( [ name, ...args ] ) {
     const sides = name.split( '' );
-    let _range = [];
-    args.forEach( arg => { _range.push( parseInt( arg ) ); } );
+    let _range = fixArgs( args );
     _range.sort( ( a, b ) => a - b );
     const _sides = ( ( sides.length > 0 ) ? sides : ['t','b','l','r'] );
     const _start = ( ( _range.length > 0 ) ? _range[0] : 0 );
@@ -726,8 +723,8 @@ function readWhispDoc( doc, canvasIndex, surface, spawnMargin ) {
     let dString = '';
     let auxVal = {};
     const dMods = {
-        'full': () => { auxVal = { surface: window.window }; },
-        'fullscreen': () => { auxVal = { surface: window.window }; },
+        'full': () => { auxVal = { surface: window }; },
+        'fullscreen': () => { auxVal = { surface: window }; },
     }
     for( let a = 0 ; a < doc.length ; a += 1 ) {
         if( doc.charAt( a ) === '[' ) {
@@ -829,6 +826,7 @@ class WhispCanvas {
     constructor( wSurface, i ) {
         const sMargin = 120;
         const wDoc = getWhispDoc( wSurface );
+        this.wDoc = wDoc;
         const wid = `whisps-canvas-${ i }`;
         const canvas = window.document.createElement("canvas");
         canvas.id = wid;
@@ -888,6 +886,9 @@ class WhispCanvas {
         } else if( this.isOn === true && val === false ) {
             this.turnOff();
         }
+    }
+    setAlpha( _alpha ) {
+        this.shadowAlpha = _alpha / 100;
     }
     turnOn() { 
         if( this.isOn === false ) {
@@ -960,9 +961,10 @@ class WhispCanvas {
             this.frame = -1;
         }
     }
-    reset() {
+    clearWhisps() {
         this.whispList.splice( 0, this.whispList.length );
-        const { wList, aVal, zVal, nameVal, aux } = readWhispDoc( getWhispDoc( this.pSurface ), this.canvasIndex, this.surface, this.spawnMargin );
+    }
+    setProps( { wList, aVal, zVal, nameVal, aux } ) {
         this.whispList = wList;
         this.canvasName = nameVal;
         this.shadowAlpha = aVal;
@@ -970,6 +972,15 @@ class WhispCanvas {
         this.tCurrent = ( new Date() ).getTime() / 1000;
         this.tLastDrawn = ( new Date() ).getTime() / 1000;
         this.tDelta = 0;
+    }
+    reset() {
+        this.clearWhisps();
+        this.setProps( readWhispDoc( getWhispDoc( this.pSurface ), this.canvasIndex, this.surface, this.spawnMargin ) )
+    }
+    setDoc( _doc ) {
+        this.clearWhisps();
+        this.wDoc = _doc;
+        this.setProps( readWhispDoc( _doc, this.canvasIndex, this.surface, this.spawnMargin ) );
     }
     initControls() {
         if( !( this.canvasName === '' ) ) {
@@ -988,6 +999,8 @@ class WhispCanvas {
                     ev: 'oninput',
                     functions: {
                         'onoff': e => { this.setOnOff( e.target ) },
+                        'alpha': e => { this.setAlpha( e.target.value ) },
+                        'doc': e => { this.setDoc( e.target.value ) },
                     },
                     default: e => { this.setOnOff( e.target ) },
                     auto: () => {  },
@@ -1013,6 +1026,9 @@ class WhispCanvas {
                             controllers[ c ][ effect.ev ] = effect.functions[ funct ];
                             if( key === 'set' && funct === 'onoff' ) {
                                 this.setOnOff( controllers[ c ] );
+                            }
+                            if( key === 'set' && funct === 'doc' ) {
+                                controllers[ c ].value = this.wDoc;
                             }
                         }
                         if( effect.hasOwnProperty( 'default' ) ) {
