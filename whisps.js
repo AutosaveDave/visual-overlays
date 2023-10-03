@@ -693,11 +693,6 @@ class Whisp {
     }
 }
 
-
-
-// const whispList = readWhispDoc( whispDoc ); 
-// console.log(whispList);
-
 const getWhispDoc = ( wSurface ) => {
     if( typeof wSurface.dataset.whisps === 'string' ) {
         return wSurface.dataset.whisps;
@@ -733,11 +728,8 @@ function readWhispDoc( doc, canvasIndex, surface, spawnMargin ) {
                 dString = `${ dString }${ doc.charAt( a + _char ) }`;   // add character to wString
                 _char += 1;
             }
-            console.log(dString.split(['-',' ']))
             dString.trim().split( ['-', ' '] ).forEach( dPhrase => {
-                
                 if( dMods.hasOwnProperty( dPhrase ) ) {
-                    
                     const dFunct = dMods[ dPhrase ];
                     dFunct();
                 }
@@ -818,7 +810,6 @@ function readWhispDoc( doc, canvasIndex, surface, spawnMargin ) {
     }
     alphaVal = ( !( alphaVal === -1 ) ? alphaVal : 1 );
     zVal = ( !( zVal === false ) ? zVal : 1 );
-    console.log(auxVal)
     return { wList: list, aVal: alphaVal, zVal: zVal, nameVal: nameString, aux: auxVal };
 }
 
@@ -1056,4 +1047,4 @@ class WhispCanvas {
 }
 
 createCanvasList();
-canvasList.forEach( canv => { canv.init(); console.log(canv) } );
+canvasList.forEach( canv => { canv.init(); } );
