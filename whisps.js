@@ -2,7 +2,7 @@ const canvasList = [];
 const colorHues = { red:0, orange:30, yellow:60, green:100, sea:150, cyan:180, 
     sky:200, blue:240, indigo:260, purple:280, pink:300, fuschia:335, white:-1 };
 const colorSets = {
-    all: Object.keys( colorHues ), any: Object.keys( colorHues ),
+    all: Object.values( colorHues ), any: Object.values( colorHues ),
     notWhite: Object.keys( colorHues ).slice( 0, Object.keys( colorHues ).length - 1 ),
     primary: [ colorHues.red, colorHues.blue, colorHues.yellow ],
     usa: [ colorHues.red, colorHues.white, colorHues.blue ],
