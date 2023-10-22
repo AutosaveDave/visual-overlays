@@ -7,11 +7,11 @@
 			body { margin: 0; }
 		</style>
 	</head>
-	<body style="height: 100vh; width: 100vw;"
+	<body style="height: 100vh; width: 100vw; overflow: hidden;"
 			class="whisps"
 			data-whisps=":first 80% Z10 ( whisp-fastest-smallest LC-yellow )x10 4( M-whisp-slower LC-seaweed ) 4(whisp-slow LC-mythic) 4(whisp-fast) 4(whisp-faster LC-soulfire) 4(whisp-fastest LC-fire)"
     >
-        <div style="width: 30%; height: 100%; position: fixed; top: 0; left: 0; background-color: cornflowerblue;">
+        <div style="width: 30%; height: 100%; position: fixed; top: 0; left: 0; background-color: cornflowerblue; text-align: center; padding-top: 36px; padding-bottom: 12px;">
             <input value="true" type="checkbox" id="whisps-onoff" name="wcheck" class="whisps-first-set-onoff" />
             <label for="whisps-onoff">Show Whisps </label>
             <br/><br/>
@@ -25,7 +25,21 @@
             <br/><br/>
             <button class="whisps-first-click-reset">Reset Whisps</button>
         </div>
-		<div class="whisps" data-whisps=":second 80% Z10 ( whisp-fastest-smallest LC-yellow )x10" style="width: 30%; height: 100%; position: fixed; top: 0; right: 0; background-color:chocolate;">
+        <div class="whisps" data-whisps=":third 80% Z10 ( whisp-fastest-smallest LC-yellow )x10" style="height: 60vh; position: fixed; top: 15vh; left: 35vw; right: 35vw; background-color:ghostwhite; text-align: center; padding: 36px;">
+            <input value="true" type="checkbox" id="whisps-onoff2" name="wcheck2" class="whisps-third-set-onoff" />
+            <label for="whisps-onoff2">Show Whisps </label>
+            <br/><br/>
+            <div>
+                <label for="whisps-alpha">Opacity </label>
+                <input value="50" min="0" max="100" type="range" id="whisps-alpha" name="walpha" class="whisps-third-set-alpha" />
+            </div>
+            <br/><br/>
+            <label for="whisps-doc-2">Whisp Doc </label>
+            <textarea id="whisps-doc-2" name="wdoc2" style="width:80%; height:10em;" class="whisps-third-set-doc"></textarea>
+            <br/><br/>
+            <button class="whisps-third-click-reset">Reset Whisps</button>
+        </div>
+		<div class="whisps" data-whisps=":second 80% Z10 ( whisp-fastest-smallest LC-yellow )x10" style="width: 30%; height: 100%; position: fixed; top: 0; right: 0; background-color:chocolate; padding-top: 36px; padding-bottom: 12px; text-align: center;">
             <input value="true" type="checkbox" id="whisps-onoff2" name="wcheck2" class="whisps-second-set-onoff" />
             <label for="whisps-onoff2">Show Whisps </label>
             <br/><br/>

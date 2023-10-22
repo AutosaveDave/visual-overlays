@@ -901,7 +901,6 @@ class WhispCanvas {
     handleMouseMove( e ) { 
         const targetRect = e.target.getBoundingClientRect();
         const canvRect = this.canvasEl.getBoundingClientRect();
-        console.log(top)
         const time = ( new Date() ).getTime() / 1000;
         this.mxPrev = this.mx;
         this.myPrev = this.my;
