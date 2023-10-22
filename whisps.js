@@ -23,7 +23,7 @@ const rndColorShift = ( val, maxShift ) => {
     return v;
 }
 const rndShift = ( val, maxShift ) => ( val - maxShift + Math.floor( (2 * maxShift * Math.random() ) * 100 ) / 100 );
-const rndChoose = array => array[ Math.floor( ( array.length - 1 ) * Math.random() ) ];
+const rndChoose = array => array[ Math.floor( ( array.length ) * Math.random() ) ];
 const getColor = color => {
     if( typeof color === 'string' ){
         if( colorHues.hasOwnProperty( color ) )
