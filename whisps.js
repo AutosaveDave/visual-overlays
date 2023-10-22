@@ -899,11 +899,14 @@ class WhispCanvas {
         this.canvasEl.width = getWidth( this.surface ); 
     }
     handleMouseMove( e ) { 
+        const targetRect = e.target.getBoundingClientRect();
+        const canvRect = this.canvasEl.getBoundingClientRect();
+        console.log(top)
         const time = ( new Date() ).getTime() / 1000;
         this.mxPrev = this.mx;
         this.myPrev = this.my;
-        this.mx = e.layerX; 
-        this.my = e.layerY; 
+        this.mx = e.offsetX + targetRect.left - canvRect.left; 
+        this.my = e.offsetY + targetRect.top - canvRect.top; 
         
     };
     handleMouseUp( e ) { this.mup = true; };
