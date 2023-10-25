@@ -63,7 +63,17 @@ const modVals = {       // increase from [0] (zero) to [10] (max)
     turnSpeed: [ 0, degToRad( 40 ), degToRad( 80 ), degToRad( 120 ), degToRad( 160 ), degToRad( 200 ), degToRad( 240 ), degToRad( 280 ), degToRad( 320 ), degToRad( 360 ), degToRad( 400 ) ],
 }
 const moveTypes = [ 'swim', 'drift', 'glide', 'crawl', 'weave', 'float' ];    // movement types - not used yet
-
+const speedSubMods = {
+    fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[10], acceleration: modVals.acceleration[10], } } },
+    veryfast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[9], } } },
+    faster: { bmod: { actions: {maxSpeed: modVals.maxSpeed[8], acceleration: modVals.acceleration[8], } } },
+    fast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[7], acceleration: modVals.acceleration[7], } } },
+    fastish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[6], acceleration: modVals.acceleration[6], } } },
+    slowish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[4], acceleration: modVals.acceleration[4], } } },
+    slow: { bmod: { actions: {maxSpeed: modVals.maxSpeed[3], acceleration: modVals.acceleration[3], } } },
+    slower: { bmod: { actions: {maxSpeed: modVals.maxSpeed[2], acceleration: modVals.acceleration[2], } } },
+    slowest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[1], acceleration: modVals.acceleration[1], } } },
+};
 const mods = {
     whisp: {
         default: {
@@ -82,15 +92,7 @@ const mods = {
                 } ],
             } ],
         },
-        fastest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[10], acceleration: modVals.acceleration[10], } } },
-        veryfast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[9], acceleration: modVals.acceleration[9], } } },
-        faster: { bmod: { actions: {maxSpeed: modVals.maxSpeed[8], acceleration: modVals.acceleration[8], } } },
-        fast: { bmod: { actions: {maxSpeed: modVals.maxSpeed[7], acceleration: modVals.acceleration[7], } } },
-        fastish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[6], acceleration: modVals.acceleration[6], } } },
-        slowish: { bmod: { actions: {maxSpeed: modVals.maxSpeed[4], acceleration: modVals.acceleration[4], } } },
-        slow: { bmod: { actions: {maxSpeed: modVals.maxSpeed[3], acceleration: modVals.acceleration[3], } } },
-        slower: { bmod: { actions: {maxSpeed: modVals.maxSpeed[2], acceleration: modVals.acceleration[2], } } },
-        slowest: { bmod: { actions: {maxSpeed: modVals.maxSpeed[1], acceleration: modVals.acceleration[1], } } },
+        ...speedSubMods,
     },
 
     follow: {

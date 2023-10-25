@@ -84,7 +84,44 @@ Whisp strings use several types of phrases. Each type is designated by its own *
 | Spawn Location | @ | Sides (`'t'`,`'b'`,`'l'`, and/or `'r'`) | Min position | Max position | |  |
 
 #### Mods
-Mods are the most user-friendly Whisp phrases. Mod phrases are designated by a phraseType of `M`.  
+**Mods** are the most user-friendly Whisp phrases. Mod phrases are designated by a type code of `M`. Mods should generally come before any other types of whisp phrases There are 3 types of mods: **Preset Mods**, **Sub-Mods**, and **Config Mods**.
+##### Preset Mods
+**Preset Mods** set all necessary whisp properties and behaviors, simplifying your whisp statements. Whisp properties set by preset mods ***other than behaviors*** can be overwritten by subsequent whisp phrases. Properties of behaviors set by the preset mod can only be modified by **sub-mods** in the same whisp phrase as the preset mod.
+| **MOD PHRASE** | **DESCRIPTION / SUB-MODS** |
+| :----------- | :---------------------- |
+| whisp | Color: mystic color set <br/>Light Scale: 2 to 5 <br/>Behavior: Move and Turn toward cursor at default speed |
+*Currently, not many preset mods are available, but more will be added in the future.*
+##### Sub-Mods
+**Sub-mods** modify behavior properties set by a preceding **preset mod**. *Currently, sub-mods can only modify movement speed and turn speed.
+
+**MOVEMENT SPEED SUB-MODS** in order from slowest to fastest:
+
+`slowest`<br/>
+`slower`<br/>
+`slow`<br/>
+`slowish`<br/>
+`fastish`<br/>
+`fast`<br/>
+`faster`<br/>
+`veryfast`<br/>
+`fastest`<br/>
+
+##### Config Mods
+**Config mods** modify specific whisp properties, allowing for more customization. **Currently, config mods can only modify whisp size, but more config mods will be added in the future.**
+
+**WHISP SIZE CONFIG MODS** in order from smallest to largest: 
+
+`smallest`<br/>
+`verysmall`<br/>
+`small`<br/>
+`smaller`<br/>
+`small`<br/>
+`smallish`<br/>
+`largeish`<br/>
+`large`<br/>
+`larger`<br/>
+`verylarge`<br/>
+`largest`<br/>
 
 #### Colors
 
