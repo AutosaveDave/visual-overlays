@@ -125,8 +125,43 @@ Whisp strings use several types of phrases. Each type is designated by its own *
 `largest`<br/>
 
 #### Colors
+The whisp color can be set using type code `LC` followed by a color name. for example, `LC-red` will set the whisp color to red.
+
+**COLORS:**
+
+<span style="color:white; background-color:hsl(0,100%,50%);">**red**</span><br/>
+<span style="color:black; background-color:hsl(30,100%,50%);">**orange**</span><br/>
+<span style="color:black; background-color:hsl(60,100%,50%);">**yellow**</span><br/>
+<span style="color:black; background-color:hsl(100,100%,50%);">**green**</span><br/>
+<span style="color:black; background-color:hsl(150,100%,50%);">**sea**</span><br/>
+<span style="color:black; background-color:hsl(180,100%,50%);">**cyan**</span><br/>
+<span style="color:black; background-color:hsl(200,100%,50%);">**sky**</span><br/>
+<span style="color:white; background-color:hsl(240,100%,50%);">**blue**</span><br/>
+<span style="color:white; background-color:hsl(260,100%,50%);">**indigo**</span><br/>
+<span style="color:white; background-color:hsl(280,100%,50%);">**purple**</span><br/>
+<span style="color:black; background-color:hsl(300,100%,50%);">**pink**</span><br/>
+<span style="color:black; background-color:hsl(335,100%,50%);">**fuschia**</span><br/>
+<span style="color:black; background-color:hsl(0,100%,100%);">**white**</span><br/>
 
 #### Color Sets
+
+The whisp color can be set to a **color set**, which will randomly select a color from the designated color set. This is accomplished by using type code `LC` followed by the name of the desired color set. For example `LC-mystic` will set the whisp color to the "mystic" color set.
+
+| **COLOR SETS** | **COLORS** |
+| :------------- | :--------- |
+| all | *All available colors* |
+| any | *All available colors* |
+| notWhite | *All availables colors, excluding white* |
+| primary | red, blue, yellow |
+| usa | red, white, blue |
+| rgb | red, green, blue |
+| eldritch | fuschia, purple, indigo, pink |
+| fire | red, orange, yellow |
+| soulfire | yellow, green, sea |
+| aquatic | blue, sky, sea, cyan |
+| seaweed | blue, sky, sea, cyan, green, indigo |
+| mystic | white, cyan, sky, yellow |
+| mythic | yellow, cyan, fuschia |
 
 #### 
 
