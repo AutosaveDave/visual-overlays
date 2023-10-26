@@ -173,7 +173,39 @@ The whisp color can be set to a **color set**, which will randomly select a colo
 | `mythic` | yellow, cyan, fuschia |
 
 #### Behavior
+Whisp behaviors can be set using **behavior phrases**. A behavior phrase consists of at least one **action phrase** and zero or more **condition phrases**, separated by dashes (`-`). Whenever all conditions specified by condition phrases are met, the whisp will perform all actions specified by action phrases. If no condition phrases are included, the whisp always performs all actions specified by action phrases.
 
+##### Action Phrases
+An **action phrase** consists of an **action type** followed by arguments specific to that action type, separated by periods (`.`). *Currently, not many action types are available, but more will be added in the future.*
+
+##### Action Types
+| **ACTION TYPE** | **ARG 1** | **ARG 2** | **ARG 3** | **ARG 4** |
+| :-------------- | :-------- | :-------- | :-------- | :-------- |
+| `follow` | **target** - what the whisp is following | **speed** - maximum speed of the whisp in pixels/second | **acceleration** - acceleration of whisp in pixels/second<sup>2</sup>  | **turn speed** - angular turning speed of whisp in degrees/second |
+| `flee` | **target** - what the whisp is fleeing from | **speed** - maximum speed of the whisp in pixels/second | **acceleration** - acceleration of whisp in pixels/second<sup>2</sup>  | **turn speed** - angular turning speed of whisp in degrees/second |
+
+##### Action Targets
+The `follow` and `flee` action types require a specified **target**. *Currently, not many valid targets are available, but more will be added in the future.*
+
+| **ACTION TARGET** | **DESCRIPTION** |
+| :---------------- | :-------------- |
+| `cursor` | Sets the action target to the cursor's coordinates. |
+| `nearest` | Sets the action target to the coordinates of the nearest whisp *(updated every frame)*. |
+
+##### Condition Phrases
+A **condition phrase** consists of a **condition signifier** (`if`, `on`, `when`, or `while`) followed by a **condition subject**, a **condition type**, and arguments specific to the condition type (in that order), separated by periods (`.`).
+
+##### Condition Subjects
+| **CONDITION SUBJECT** | **DESCRIPTION** |
+| :-------------------- | :-------------- |
+| `cursor` | Sets the condition subject to the cursor's coordinates. |
+| `nearest` | Sets the condition subject to the coordinates of the nearest whisp *(updated every frame)*. |
+
+##### Condition Types
+| **CONDITION TYPE** | **ARG 1** | **ARG 2** | **ARG 3** |
+| :----------------- | :-------- | :-------- | :-------- |
+| `in`<br/>or<br/>`within` |  |  |  |
+| `out`<br/>or<br/>`outside` |  |  |  |
 
 #### Spawn Location
 
