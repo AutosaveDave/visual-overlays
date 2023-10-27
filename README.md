@@ -224,7 +224,11 @@ If only one argument is provided, the argument is taken as the maximum side-leng
 
 The user can set different ranges for different sides by using multiple spawn location phrases. 
 
-For example: `@-tb-25-75 @-lr-100` would set the whisps to spawn on the top and bottom sides of the canvas between 25% and 75% of the canvas width AND on the left and right sides of the canvas between 0% and 100% of the canvas height.
+For example: 
+
+`@-tb-25-75 @-lr-100` would set the whisps to spawn on the top and bottom sides of the canvas between 25% and 75% of the canvas width AND on the left and right sides of the canvas between 0% and 100% of the canvas height.
+
+`@-trlb-30-70` would set the whisps to spawn on all sides between 30% and 70% of each side's length.
 
 ### Assign Controllers
 
