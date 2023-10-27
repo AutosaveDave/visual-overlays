@@ -231,6 +231,25 @@ For example:
 `@-trlb-30-70` would set the whisps to spawn on all sides between 30% and 70% of each side's length.
 
 ### Assign Controllers
+If a whisps doc includes a [name statement](#name-statements), you can use the `class` attribute to assign HTML elements as **controllers** for the whisp canvas. To do this, add a class to the element in the following format:<br/>
+`whisps-[whispsDocName]-[triggerType]-[effectType]`
+
+#### Effect Types
+
+| **EFFECT TYPE** | **DESCRIPTION** |
+| :--------------- | :-------------- |
+| `onoff` | Toggles the whisps overlay on/off when effect is triggered.<br/>*If used with the `set` trigger type, this effect currently only works with `<input>` elements with `type="checkbox"`.* |
+| `reset` | Restarts the whisps overlay when effect is triggered. |
+| `alpha` | Sets the opacity of the whisps overlay to the value of the controller element when effect is triggered.<br/>*This should only be used with `<input>` elements with `type="range"`.* |
+| `doc` | Sets the text of the whisps doc to the value of the controller element when effect is triggered.<br/>***This effect type is intended ONLY for testing and demo purposes, and may cause serious issues.***<br/>*This should only be used with `<textarea>` elements or `<input>` elements with `type="text"`.* |
+
+#### Trigger Types
+
+| **TRIGGER TYPE** | **AVAILABLE EFFECT TYPES** | **DESCRIPTION** |
+| :---------------- | :------------------------- | :-------------- |
+| `click` | `onoff`<br/>`reset` | Triggers effect when the controller element is clicked, using the element's `onclick` event. |
+| `set` | `onoff`<br/>`alpha`<br/>`doc` | Triggers effect when the value of the controller element is changed, using the element's `oninput` event. |
+| `hover` | `onoff` | Turns the whisp overlay **on** when the mouse is over the controller element, using the element's `onmouseover` event.<br/>Turns the whisp overlay **off** when the mouse is over the controller element, using the element's `onmouseover` event. |
 
 ## Usage
 
