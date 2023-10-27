@@ -173,7 +173,7 @@ The whisp color can be set to a **color set**, which will randomly select a colo
 | `mythic` | yellow, cyan, fuschia |
 
 #### Behavior
-Whisp behaviors can be set using **behavior phrases**. A behavior phrase consists of at least one **action phrase** and zero or more **condition phrases**, separated by dashes (`-`). Whenever all conditions specified by condition phrases are met, the whisp will perform all actions specified by action phrases. If no condition phrases are included, the whisp always performs all actions specified by action phrases.
+Whisp behaviors can be set using **behavior phrases**, designated by a type code of `B`. A behavior phrase consists of at least one **action phrase** and zero or more **condition phrases**, separated by dashes (`-`). Whenever all conditions specified by condition phrases are met, the whisp will perform all actions specified by action phrases. If no condition phrases are included, the whisp always performs all actions specified by action phrases.
 
 ##### Action Phrases
 An **action phrase** consists of an **action type** followed by arguments specific to that action type, separated by periods (`.`). *Currently, not many action types are available, but more will be added in the future.*
@@ -202,13 +202,29 @@ A **condition phrase** consists of a **condition signifier** (`if`, `on`, `when`
 | `nearest` | Sets the condition subject to the coordinates of the nearest whisp *(updated every frame)*. |
 
 ##### Condition Types
-| **CONDITION TYPE** | **ARG 1** | **ARG 2** | **ARG 3** |
-| :----------------- | :-------- | :-------- | :-------- |
-| `in`<br/>or<br/>`within` |  |  |  |
-| `out`<br/>or<br/>`outside` |  |  |  |
+| **CONDITION TYPE** | **ARGUMENTS** | **DESCRIPTION** |
+| :----------------- | :--------- |:-------------- |
+| `in`<br/>or<br/>`within` | If two arguments are provided, arguments are taken as the minimum value followed by the maximum value.<br/><br/>If only one argument is provided, it is taken as the maximum value, and the minimum value is set to zero. | Condition is met if the distance (in pixels) from the whisp to the condition subject is between the minimum and maximum values provided by arguments. |
+| `out`<br/>or<br/>`outside` | If two arguments are provided, arguments are taken as the minimum value followed by the maximum value.<br/><br/>If only one argument is provided, it is taken as the maximum value, and the minimum value is set to zero. | Condition is met if the distance (in pixels) from the whisp to the condition subject **is NOT** between the minimum and maximum values provided by arguments. |
 
 #### Spawn Location
+A spawn location phrase can be used to designate where the whisps should spawn, designated by a type code of `@`. By default, whisps can spawn just out of frame anywhere along the top, right, bottom, and left sides of the whisp canvas.
 
+A spawn location phrase consists of a **sides string** followed by one or two numerical arguments, all separated by dashes (`-`).
+
+A **sides string** is a string of 1 to 4 characters that designates to which side(s) of the whisp canvas the subsequent arguments apply. 
+
+The four valid characters that can be used in a sides string are: `t` (top), `r` (right), `b` (bottom), and/or `l` (left). The characters may appear in any order.
+
+The **arguments** in a spawn location phrase are integers from 0 to 100 (inclusive). These values represent percentages of the length of each side designated in the sides string. 
+
+If two arguments are provided, the first is the minimum side-length percentage, and the second is the maximum side-length percentage.
+
+If only one argument is provided, the argument is taken as the maximum side-length percentage, and the minimum is set to zero.
+
+The user can set different ranges for different sides by using multiple spawn location phrases. 
+
+For example: `@-tb-25-75 @-lr-100` would set the whisps to spawn on the top and bottom sides of the canvas between 25% and 75% of the canvas width AND on the left and right sides of the canvas between 0% and 100% of the canvas height.
 
 ### Assign Controllers
 
