@@ -249,7 +249,7 @@ If a whisps doc includes a [name statement](#name-statements), you can use the `
 | :---------------- | :------------------------- | :-------------- |
 | `click` | `onoff`<br/>`reset` | Triggers effect when the controller element is clicked, using the element's `onclick` event. |
 | `set` | `onoff`<br/>`alpha`<br/>`doc` | Triggers effect when the value of the controller element is changed, using the element's `oninput` event. |
-| `hover` | `onoff` | Turns the whisp overlay **on** when the mouse is over the controller element, using the element's `onmouseover` event.<br/>Turns the whisp overlay **off** when the mouse is over the controller element, using the element's `onmouseover` event. |
+| `hover` | `onoff` | Turns the whisp overlay **on** when the mouse is over the controller element, using the element's `onmouseover` event.<br/>Turns the whisp overlay **off** when the mouse is over the controller element, using the element's `onmouseout` event.<br/>*Currently, whisps overlays using the `hover` trigger with the `onoff` effect are turned on when the page first loads. This will be fixed in the future.* |
 
 ## Usage
 
